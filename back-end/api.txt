@@ -1,0 +1,51 @@
+- document:
+get: documents/
+put: documents/
+patch: documents/{document_id}
+delete: documents/{document_id}
+put: documents/upload-url
+get: documents/{document_id}
+get: documents/{document_id}/access-url
+post: documents/{document_id}/approve
+post: documents/{document_id}/download
+
+
+PDF: application/pdf
+PNG: image/png
+JPEG: image/jpeg
+DOCX: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+Văn bản thuần
+.txt
+text/plain
+PDF
+.pdf
+application/pdf
+Word (cũ)
+.doc
+application/msword
+Word (mới)
+.docx
+application/vnd.openxmlformats-officedocument.wordprocessingml.document
+Excel (mới)
+.xlsx
+application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Ảnh JPEG
+.jpg, .jpeg
+image/jpeg
+Ảnh PNG
+.png
+image/png
+Zip/Rar
+.zip, .rar
+application/zip hoặc application/x-rar-compressed
+
+
+alembic:
+kiểm tra db đang ở revision nào: .\.venv\Scripts\python.exe -m alembic current
+Xem lịch sử migration: .\.venv\Scripts\python.exe -m alembic history --verbose
+Tạo migration mới để đồng bộ schema: .\.venv\Scripts\python.exe -m alembic revision --autogenerate -m "add department and subject to documents"
+Áp migration: .\.venv\Scripts\python.exe -m alembic upgrade head
+
+lệnh curl
+PS C:\Users\Pham Hieu> curl.exe -X PUT -H "Content-Type: text/plain" --upload-file "Đường dẫn" "upload_url"

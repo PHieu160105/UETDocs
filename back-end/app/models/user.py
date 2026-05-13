@@ -87,5 +87,29 @@ class User(Base):
         lazy="select"
     )
 
+    courses = relationship(
+        "Course",
+        back_populates="owner",
+        lazy="select",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    bookmarks = relationship(
+        "Bookmark",
+        back_populates="user",
+        lazy="select",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    document_downloads = relationship(
+        "DocumentDownload",
+        back_populates="user",
+        lazy="select",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', role='{self.role}')>"

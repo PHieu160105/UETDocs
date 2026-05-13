@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.storage import ObjectStorageClient
 
 
-class MediaService:
+class StorageService:
     def __init__(self):
         self.storage_client = ObjectStorageClient(
             endpoint=settings.R2_ENDPOINT,
@@ -27,9 +27,6 @@ class MediaService:
     ) -> str:
         """
         Build a stable object key for upload and later retrieval.
-
-        The key format keeps files grouped by visibility and folder:
-        visibility/folder/uuid.ext
         """
         if not original_filename:
             raise HTTPException(status_code=400, detail="Filename required")
@@ -52,9 +49,6 @@ class MediaService:
     ) -> dict:
         """
         Generate a presigned PUT URL for direct upload from frontend.
-
-        Upload stays presigned for both public and private files.
-        Visibility only affects the object key layout and later access URL.
         """
         try:
             object_key = self.build_object_key(
@@ -121,9 +115,6 @@ class MediaService:
         expired_minutes: int = 10,
         public_base_url: str | None = None,
     ) -> str:
-        """
-        Alias for generate_view_url when you want the intent to be explicit.
-        """
         return self.generate_view_url(
             object_key,
             is_public=is_public,
@@ -132,9 +123,6 @@ class MediaService:
         )
 
     def file_exists(self, object_key: str, *, nullable: bool = True) -> bool:
-        """
-        Check whether an object exists in the configured bucket.
-        """
         if not object_key:
             return False
         return self.storage_client.file_exists(object_key, nullable=nullable)

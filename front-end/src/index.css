@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --text: #4a5477;
+  --text-strong: #0f1e4d;
+  --bg: #f0f3fb;
+  --border: #e3e6ef;
+  --card: #ffffff;
+  --primary: #0f62fe;
+  --primary-soft: #e7f2ff;
+  --muted: #5a6583;
+  --mono: 'Inter', ui-monospace, Consolas, monospace;
+
+  font: 17px/150% 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.page__content {
+  width: min(1360px, calc(100% - 64px));
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.page > :not(.topbar) {
+  width: min(1360px, calc(100% - 64px));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--text-strong);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+  color: var(--text);
+}
+
+a {
+  color: var(--primary);
+}
+
+code {
+  font-family: var(--mono);
+}

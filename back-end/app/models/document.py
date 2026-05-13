@@ -16,7 +16,6 @@ class Document(Base):
     file_size = Column(BigInteger, nullable=False)          
     mime_type = Column(String(100), nullable=True) 
 
-
    
     status = Column(
         Enum("pending", "approved", "rejected", name="document_status_enum"),
@@ -41,6 +40,10 @@ class Document(Base):
 
     department = Column(String(255), nullable=False)
     subject = Column(String(255), nullable=False)
+    year = Column(Integer, nullable=True, index=True)
+    teacher = Column(String(255), nullable=True)
+    note = Column(Text, nullable=True)
+
 
     download_count = Column(Integer, default=0, nullable=False)
     rating_count = Column(Integer, default=0, nullable=False)
@@ -69,6 +72,39 @@ class Document(Base):
         back_populates="document", 
         lazy="select", 
         cascade="all, delete-orphan", 
+        passive_deletes=True
+    )
+
+    course_links = relationship(
+        "CourseDocument",
+        back_populates="document",
+        lazy="select",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    courses = relationship(
+        "Course",
+        secondary="course_documents",
+        back_populates="documents",
+        lazy="select",
+        viewonly=True,
+        overlaps="course_links,document_links"
+    )
+
+    bookmarks = relationship(
+        "Bookmark",
+        back_populates="document",
+        lazy="select",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    download_logs = relationship(
+        "DocumentDownload",
+        back_populates="document",
+        lazy="select",
+        cascade="all, delete-orphan",
         passive_deletes=True
     )
 
