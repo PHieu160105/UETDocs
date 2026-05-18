@@ -1,7 +1,8 @@
 from uuid import UUID
-from typing import List
+from typing import List, Literal
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.authorization import get_current_user, require_admin
@@ -13,15 +14,20 @@ from app.schemas.document import (
     DocumentUpdate,
     DocumentUploadUrlRequest,
 )
+from app.schemas.document_report import DocumentReportCreateRequest, DocumentReportResponse
+from app.schemas.document_vote import DocumentInteractionResponse, DocumentVoteResponse, DocumentVoteUpsertRequest
+from app.services.document_interaction_service import DocumentInteractionService
 from app.services.document_service import DocumentService
 
 
 router = APIRouter()
 document_service = DocumentService()
+document_interaction_service = DocumentInteractionService()
 
 
 @router.get("/documents", response_model=List[DocumentResponse])
 async def get_documents(
+    response: Response,
     db: AsyncSession = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -29,7 +35,18 @@ async def get_documents(
     department: str | None = Query(None),
     subject: str | None = Query(None),
     search: str | None = Query(None),
+    sort: Literal["newest", "downloads", "likes", "rating"] = Query("newest"),
 ):
+    total = await document_service.count_documents(
+        db,
+        status="approved",
+        uploader_id=uploader_id,
+        department=department,
+        subject=subject,
+        search=search,
+    )
+    response.headers["X-Total-Count"] = str(total)
+
     return await document_service.list_documents(
         db,
         skip=skip,
@@ -39,6 +56,7 @@ async def get_documents(
         department=department,
         subject=subject,
         search=search,
+        sort=sort,
     )
 
 
@@ -101,6 +119,19 @@ async def create_upload_url(
     )
 
 
+@router.post("/documents/upload-file")
+async def upload_file_to_storage(
+    file: UploadFile = File(...),
+    folder: str = Form("documents"),
+    _current_user = Depends(get_current_user),
+):
+    upload_result = await document_service.upload_document_file(
+        upload_file=file,
+        folder=folder,
+    )
+    return upload_result
+
+
 @router.put("/documents", response_model=DocumentResponse)
 async def register_document(
     payload: DocumentRegister = Body(...),
@@ -138,7 +169,6 @@ async def get_document(document_id: UUID, db: AsyncSession = Depends(get_db)):
 async def get_document_access_url(
     document_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user = Depends(get_current_user),
     expired_minutes: int = Query(10, ge=1, le=1440),
     public_base_url: str | None = Query(None),
 ):
@@ -151,6 +181,77 @@ async def get_document_access_url(
     if not access_url:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     return {"access_url": access_url}
+
+
+@router.get("/documents/{document_id}/text-preview", response_class=PlainTextResponse)
+async def get_document_text_preview(
+    document_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    content = await document_service.get_text_preview(db, document_id)
+    return PlainTextResponse(content, media_type="text/plain; charset=utf-8")
+
+
+@router.get("/documents/{document_id}/interaction", response_model=DocumentInteractionResponse)
+async def get_document_interaction(
+    document_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    return await document_interaction_service.get_interaction(
+        db,
+        document_id=document_id,
+        user_id=getattr(current_user, "id", None),
+    )
+
+
+@router.put("/documents/{document_id}/vote", response_model=DocumentVoteResponse)
+async def upsert_document_vote(
+    document_id: UUID,
+    payload: DocumentVoteUpsertRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    vote = await document_interaction_service.upsert_vote(
+        db,
+        document_id=document_id,
+        user_id=getattr(current_user, "id", None),
+        vote_type=payload.vote,
+    )
+    await db.commit()
+    return vote
+
+
+@router.delete("/documents/{document_id}/vote", response_model=DocumentInteractionResponse)
+async def delete_document_vote(
+    document_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    interaction = await document_interaction_service.delete_vote(
+        db,
+        document_id=document_id,
+        user_id=getattr(current_user, "id", None),
+    )
+    await db.commit()
+    return interaction
+
+
+@router.post("/documents/{document_id}/report", response_model=DocumentReportResponse)
+async def create_document_report(
+    document_id: UUID,
+    payload: DocumentReportCreateRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    report = await document_interaction_service.create_or_update_report(
+        db,
+        document_id=document_id,
+        user_id=getattr(current_user, "id", None),
+        payload=payload,
+    )
+    await db.commit()
+    return report
 
 
 @router.patch("/documents/{document_id}", response_model=DocumentResponse, dependencies=[Depends(require_admin)])

@@ -10,7 +10,8 @@ from app.auth.jwt_handler import encode_jwt
 from app.core.database import get_db
 from app.crud.course import CourseCRUD
 from app.crud.document import DocumentCRUD
-from app.crud.document_rating import DocumentRatingCRUD
+from app.crud.document_report import DocumentReportCRUD
+from app.crud.document_vote import DocumentVoteCRUD
 from app.crud.user import UserCRUD
 from app.schemas.user import UserCreate, UserResponse, UserSignin, UserUpdate
 from app.schemas.user_activity import UserActivityResponse
@@ -20,7 +21,8 @@ hash_helper = CryptContext(schemes=["bcrypt"], deprecated="auto")
 user_crud = UserCRUD()
 document_crud = DocumentCRUD()
 course_crud = CourseCRUD()
-rating_crud = DocumentRatingCRUD()
+vote_crud = DocumentVoteCRUD()
+report_crud = DocumentReportCRUD()
 
 
 @router.post("/auth/login")
@@ -124,7 +126,8 @@ async def get_user_activity(user_id: UUID, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     documents = await document_crud.get_documents(db, uploader_id=user_id, limit=100)
-    ratings_rows = await rating_crud.get_ratings_by_user_with_document_title(db, user_id, limit=100)
+    vote_rows = await vote_crud.get_votes_by_user_with_document_title(db, user_id, limit=100)
+    report_rows = await report_crud.get_reports_by_user_with_document_title(db, user_id, limit=100)
     courses = await course_crud.get_courses_by_owner(db, owner_id=user_id, limit=100)
 
     return UserActivityResponse(
@@ -137,22 +140,36 @@ async def get_user_activity(user_id: UUID, db: AsyncSession = Depends(get_db)):
                 "department": document.department,
                 "status": document.status,
                 "download_count": document.download_count,
-                "rating_average": document.rating_average,
-                "rating_count": document.rating_count,
+                "like_count": document.like_count,
+                "dislike_count": document.dislike_count,
+                "report_count": document.report_count,
                 "file_size": document.file_size,
                 "created_at": document.created_at,
             }
             for document in documents
         ],
-        ratings=[
+        votes=[
             {
-                "id": rating.id,
-                "document_id": rating.document_id,
+                "id": vote.id,
+                "document_id": vote.document_id,
                 "document_title": document_title or "(Khong ro)",
-                "score": rating.score,
-                "created_at": rating.created_at,
+                "vote_type": vote.vote_type,
+                "created_at": vote.created_at,
+                "updated_at": vote.updated_at,
             }
-            for rating, document_title in ratings_rows
+            for vote, document_title in vote_rows
+        ],
+        reports=[
+            {
+                "id": report.id,
+                "document_id": report.document_id,
+                "document_title": document_title or "(Khong ro)",
+                "reason": report.reason,
+                "status": report.status,
+                "created_at": report.created_at,
+                "updated_at": report.updated_at,
+            }
+            for report, document_title in report_rows
         ],
         courses=[
             {

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.document import DocumentCRUD
@@ -14,10 +15,30 @@ from app.services.storage_service import StorageService
 
 
 class DocumentService:
+    MAX_TEXT_PREVIEW_BYTES = 512 * 1024
+
     def __init__(self) -> None:
         self.document_crud = DocumentCRUD()
         self.download_crud = DocumentDownloadCRUD()
         self.storage_service = StorageService()
+
+    @staticmethod
+    def _is_text_previewable(document) -> bool:
+        mime_type = (document.mime_type or "").lower()
+        if mime_type.startswith("text/"):
+            return True
+
+        extension = Path(document.original_name or "").suffix.lower()
+        return extension in {
+            ".txt",
+            ".md",
+            ".csv",
+            ".json",
+            ".log",
+            ".xml",
+            ".yml",
+            ".yaml",
+        }
 
     def _build_document_response(self, document, *, is_public: bool = False) -> DocumentResponse:
         detail = DocumentResponse.model_validate(document)
@@ -96,6 +117,37 @@ class DocumentService:
 
         return self._build_document_response(document, is_public=False)
 
+    async def upload_document_file(
+        self,
+        *,
+        upload_file: UploadFile,
+        folder: str = "documents",
+    ) -> dict:
+        if upload_file.file is None:
+            raise HTTPException(status_code=400, detail="Uploaded file is missing")
+
+        original_filename = upload_file.filename or ""
+        if not original_filename:
+            raise HTTPException(status_code=400, detail="Filename required")
+
+        stream = upload_file.file
+        current_position = stream.tell()
+        stream.seek(0, 2)
+        file_size = stream.tell()
+        stream.seek(current_position or 0)
+
+        if current_position != 0:
+            stream.seek(0)
+
+        return self.storage_service.upload_file(
+            stream,
+            original_filename=original_filename,
+            content_type=upload_file.content_type,
+            file_size=file_size,
+            folder=folder,
+            visibility="private",
+        )
+
     async def get_document_detail(
         self,
         db: AsyncSession,
@@ -132,6 +184,7 @@ class DocumentService:
         department: str | None = None,
         subject: str | None = None,
         search: str | None = None,
+        sort: str = "newest",
     ) -> list[DocumentResponse]:
         documents = await self.document_crud.get_documents(
             db,
@@ -142,8 +195,28 @@ class DocumentService:
             department=department,
             subject=subject,
             search=search,
+            sort=sort,
         )
         return [DocumentResponse.model_validate(document) for document in documents]
+
+    async def count_documents(
+        self,
+        db: AsyncSession,
+        *,
+        status: DocumentStatus | None = None,
+        uploader_id: UUID | None = None,
+        department: str | None = None,
+        subject: str | None = None,
+        search: str | None = None,
+    ) -> int:
+        return await self.document_crud.count_documents(
+            db,
+            status=status,
+            uploader_id=uploader_id,
+            department=department,
+            subject=subject,
+            search=search,
+        )
 
     async def update_document(
         self,
@@ -229,7 +302,7 @@ class DocumentService:
         db: AsyncSession,
         document_id: UUID,
         user_id: UUID,
-    ) -> Optional[DocumentResponse]:
+    ) -> Optional[dict]:
         document = await self.document_crud.get_document_by_id(db, document_id)
         if document is None:
             return None
@@ -241,7 +314,40 @@ class DocumentService:
         updated_document = await self.document_crud.increment_download_count(db, document_id, amount=1)
         if updated_document is None:
             return None
-        return self._build_document_response(updated_document, is_public=False)
+        return {
+            "download_url": self.storage_service.generate_download_url(
+                updated_document.file_key,
+                original_filename=updated_document.original_name,
+                is_public=False,
+            ),
+            "filename": updated_document.original_name,
+        }
+
+    async def get_text_preview(
+        self,
+        db: AsyncSession,
+        document_id: UUID,
+    ) -> str:
+        document = await self.document_crud.get_document_by_id(db, document_id)
+        if document is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        if document.status != "approved":
+            raise HTTPException(status_code=403, detail="Document is not approved yet")
+
+        if not self._is_text_previewable(document):
+            raise HTTPException(status_code=415, detail="Document type does not support text preview")
+
+        if (document.file_size or 0) > self.MAX_TEXT_PREVIEW_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    "Text preview is limited to files up to "
+                    f"{self.MAX_TEXT_PREVIEW_BYTES // 1024} KB"
+                ),
+            )
+
+        return self.storage_service.get_text_content(document.file_key)
 
     async def approve_document(
         self,

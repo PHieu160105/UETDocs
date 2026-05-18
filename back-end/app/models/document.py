@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import BigInteger, CheckConstraint, Column, Enum, ForeignKey, Integer, Numeric, DateTime, String, Text, func
+from sqlalchemy import BigInteger, CheckConstraint, Column, Enum, ForeignKey, Integer, DateTime, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.models import Base
@@ -46,8 +46,9 @@ class Document(Base):
 
 
     download_count = Column(Integer, default=0, nullable=False)
-    rating_count = Column(Integer, default=0, nullable=False)
-    rating_average = Column(Numeric(2, 1), default=0.0, nullable=False)
+    like_count = Column(Integer, default=0, nullable=False)
+    dislike_count = Column(Integer, default=0, nullable=False)
+    report_count = Column(Integer, default=0, nullable=False)
 
     approved_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -67,9 +68,17 @@ class Document(Base):
         lazy="select"
     )
 
-    ratings = relationship(
-        "DocumentRating", 
-        back_populates="document", 
+    votes = relationship(
+        "DocumentVote",
+        back_populates="document",
+        lazy="select",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    reports = relationship(
+        "DocumentReport",
+        back_populates="document",
         lazy="select", 
         cascade="all, delete-orphan", 
         passive_deletes=True
@@ -110,8 +119,9 @@ class Document(Base):
 
     __table_args__ = (
         CheckConstraint("download_count >= 0", name="chk_download_count_positive"),
-        CheckConstraint("rating_count >= 0", name="chk_rating_count_positive"),
-        CheckConstraint("rating_average >= 0.0 AND rating_average <= 5.0", name="chk_rating_avg_range")
+        CheckConstraint("like_count >= 0", name="chk_like_count_positive"),
+        CheckConstraint("dislike_count >= 0", name="chk_dislike_count_positive"),
+        CheckConstraint("report_count >= 0", name="chk_report_count_positive"),
     )
 
     def __repr__(self) -> str:

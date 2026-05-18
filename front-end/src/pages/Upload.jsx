@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import Topbar from '../components/Topbar'
 import Footer from '../components/Footer'
-import { documentAPI, uploadFileToStorage } from '../api/documents'
+import { documentAPI, uploadFileToBackend, uploadFileToStorage } from '../api/documents'
+import { departmentOptions } from '../data/departments'
 import '../styles/home.css'
 import '../styles/upload.css'
 
-const facultyOptions = [
-  'Công nghệ thông tin',
-  'Điện tử Viễn thông',
-  'Trí tuệ nhân tạo',
-  'Kinh tế',
-  'Tài liệu chung',
-]
+const facultyOptions = departmentOptions.map((option) => option.label)
 
 const yearOptions = ['2026', '2025', '2024', '2023']
 
@@ -51,6 +46,8 @@ const createFileItem = (file, index) => {
     ...meta,
   }
 }
+
+const shouldFallbackToBackendUpload = (error) => !error?.response
 
 const Upload = () => {
   const fileInputRef = useRef(null)
@@ -139,18 +136,39 @@ const Upload = () => {
     setIsSubmitting(true)
     try {
       for (const [index, item] of fileItems.entries()) {
-        const uploadRes = await documentAPI.createUploadUrl({
-          original_filename: item.file.name,
-          folder: 'documents',
-          expired_minutes: 10,
-        })
+        let fileKey = ''
+        try {
+          const uploadRes = await documentAPI.createUploadUrl({
+            original_filename: item.file.name,
+            folder: 'documents',
+            expired_minutes: 10,
+          })
 
-        await uploadFileToStorage(uploadRes.data.upload_url, item.file)
+          fileKey = uploadRes.data.object_key
+
+          try {
+            await uploadFileToStorage(uploadRes.data.upload_url, item.file)
+          } catch (storageError) {
+            if (!shouldFallbackToBackendUpload(storageError)) {
+              throw storageError
+            }
+
+            const fallbackUpload = await uploadFileToBackend(item.file, 'documents')
+            fileKey = fallbackUpload.object_key
+          }
+        } catch (uploadError) {
+          const uploadMessage = uploadError.response?.data?.detail || uploadError.message
+          throw new Error(
+            uploadMessage
+              ? `Không thể tải tệp "${item.file.name}": ${uploadMessage}`
+              : `Không thể tải tệp "${item.file.name}".`,
+          )
+        }
 
         await documentAPI.registerDocument({
           title: buildDocumentTitle(item.file, index),
           description: formData.comment.trim() || null,
-          file_key: uploadRes.data.object_key,
+          file_key: fileKey,
           original_name: item.file.name,
           file_size: item.file.size,
           mime_type: item.file.type || null,
@@ -162,7 +180,9 @@ const Upload = () => {
         })
       }
 
-      setSubmitSuccess('Tải lên thành công. Tài liệu sẽ hiển thị sau khi được duyệt.')
+      setSubmitSuccess(
+        'Tải lên thành công. Tài liệu đang ở trạng thái chờ duyệt và chỉ có bản xem trước sau khi admin phê duyệt.',
+      )
       setFormData({
         title: '',
         documentType: 'Giáo trình',
@@ -281,7 +301,14 @@ const Upload = () => {
                   <div className="upload-dropzone__empty">
                     <strong>Dán hoặc kéo tệp vào đây</strong>
                     <p>Kéo thả hoặc bấm để chọn ảnh, PDF, DOCX, XLSX, PPTX, ZIP, và nhiều loại file khác.</p>
-                    <button className="upload-file-list__add" type="button" onClick={openFilePicker}>
+                    <button
+                      className="upload-file-list__add"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        openFilePicker()
+                      }}
+                    >
                       + Chọn tệp
                     </button>
                   </div>

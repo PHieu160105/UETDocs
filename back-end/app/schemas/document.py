@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 from typing import Optional, Literal
 from uuid import UUID
 
@@ -30,8 +29,9 @@ class DocumentCreate(DocumentBase):
     teacher: Optional[str] = None
     note: Optional[str] = None
     download_count: int = 0
-    rating_count: int = 0
-    rating_average: Decimal = Decimal("0.0")
+    like_count: int = 0
+    dislike_count: int = 0
+    report_count: int = 0
 
 
 class DocumentRegister(BaseModel):
@@ -70,8 +70,9 @@ class DocumentUpdate(BaseModel):
     teacher: Optional[str] = None
     note: Optional[str] = None
     download_count: Optional[int] = None
-    rating_count: Optional[int] = None
-    rating_average: Optional[Decimal] = None
+    like_count: Optional[int] = None
+    dislike_count: Optional[int] = None
+    report_count: Optional[int] = None
     approved_at: Optional[datetime] = None
 
 
@@ -90,8 +91,9 @@ class DocumentResponse(BaseModel):
     department: str
     subject: str
     download_count: int
-    rating_count: int
-    rating_average: Decimal
+    like_count: int
+    dislike_count: int
+    report_count: int
     approved_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime

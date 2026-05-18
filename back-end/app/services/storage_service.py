@@ -1,5 +1,7 @@
 from datetime import timedelta
+from typing import BinaryIO
 from pathlib import Path
+from urllib.parse import quote
 import uuid
 
 from fastapi import HTTPException
@@ -75,6 +77,43 @@ class StorageService:
                 detail=f"Cannot generate upload URL: {str(exc)}",
             )
 
+    def upload_file(
+        self,
+        file_stream: BinaryIO,
+        *,
+        original_filename: str,
+        content_type: str | None = None,
+        file_size: int = -1,
+        folder: str = "documents",
+        visibility: str = "private",
+    ) -> dict:
+        if not original_filename:
+            raise HTTPException(status_code=400, detail="Filename required")
+
+        try:
+            object_key = self.build_object_key(
+                original_filename,
+                folder=folder,
+                visibility=visibility,
+            )
+            self.storage_client.upload(
+                filename=object_key,
+                data=file_stream,
+                length=file_size,
+                content_type=content_type or "application/octet-stream",
+            )
+            return {
+                "object_key": object_key,
+                "visibility": visibility.strip().lower(),
+            }
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Cannot upload file to storage: {str(exc)}",
+            )
+
     def generate_view_url(
         self,
         object_key: str,
@@ -111,16 +150,56 @@ class StorageService:
         self,
         object_key: str,
         *,
+        original_filename: str | None = None,
         is_public: bool = False,
         expired_minutes: int = 10,
         public_base_url: str | None = None,
     ) -> str:
-        return self.generate_view_url(
-            object_key,
-            is_public=is_public,
-            expired_minutes=expired_minutes,
-            public_base_url=public_base_url,
+        if not object_key:
+            return ""
+
+        disposition_name = original_filename or Path(object_key).name
+        encoded_name = quote(disposition_name)
+        disposition = (
+            f'attachment; filename="{disposition_name}"; '
+            f"filename*=UTF-8''{encoded_name}"
         )
+
+        try:
+            if is_public:
+                return self.storage_client.public_url(
+                    object_key,
+                    public_base_url=public_base_url,
+                )
+
+            return self.storage_client.presigned_get_url(
+                filename=object_key,
+                nullable=True,
+                expires=timedelta(minutes=expired_minutes),
+                response_headers={
+                    "response-content-disposition": disposition,
+                },
+            )
+        except Exception:
+            return ""
+
+    def get_text_content(self, object_key: str, *, encoding: str = "utf-8") -> str:
+        if not object_key:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        try:
+            payload = self.storage_client.get_object_bytes(
+                object_key,
+                nullable=False,
+            )
+            return payload.decode(encoding, errors="replace")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Cannot read file content: {str(exc)}",
+            )
 
     def file_exists(self, object_key: str, *, nullable: bool = True) -> bool:
         if not object_key:

@@ -7,8 +7,11 @@
   --border: #e3e6ef;
   --card: #ffffff;
   --primary: #0f62fe;
+  --primary-strong: #0947c7;
   --primary-soft: #e7f2ff;
+  --accent: #2ac1ff;
   --muted: #5a6583;
+  --danger: #b91c1c;
   --mono: 'Inter', ui-monospace, Consolas, monospace;
 
   font: 17px/150% 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
@@ -42,7 +45,7 @@ body {
   gap: 48px;
 }
 
-.page > :not(.topbar) {
+.page > :not(.topbar):not(.footer) {
   width: min(1360px, calc(100% - 64px));
   margin-left: auto;
   margin-right: auto;

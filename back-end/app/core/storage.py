@@ -138,6 +138,8 @@ class ObjectStorageClient:
         bucket_name: str | None = None,
         nullable: bool = True,
         expires: timedelta = timedelta(days=30),
+        response_headers: dict[str, str] | None = None,
+        extra_query_params: dict[str, str] | None = None,
     ) -> str:
         """
         Generates a presigned URL for downloading a file.
@@ -158,7 +160,32 @@ class ObjectStorageClient:
         bucket_name = self.resolve_bucket_name(bucket_name)
         if not nullable:
             self.file_exists(filename, bucket_name=bucket_name, nullable=False)
-        return self.client.presigned_get_object(bucket_name=bucket_name, object_name=filename, expires=expires)
+        return self.client.get_presigned_url(
+            "GET",
+            bucket_name,
+            filename,
+            expires=expires,
+            response_headers=response_headers,
+            extra_query_params=extra_query_params,
+        )
+
+    def get_object_bytes(
+        self,
+        filename: str,
+        *,
+        bucket_name: str | None = None,
+        nullable: bool = True,
+    ) -> bytes:
+        bucket_name = self.resolve_bucket_name(bucket_name)
+        if not nullable:
+            self.file_exists(filename, bucket_name=bucket_name, nullable=False)
+
+        response = self.client.get_object(bucket_name=bucket_name, object_name=filename)
+        try:
+            return response.read()
+        finally:
+            response.close()
+            response.release_conn()
 
     def public_url(
         self,

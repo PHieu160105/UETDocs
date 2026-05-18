@@ -1,25 +1,76 @@
-const FeaturedGrid = ({ items, title, description, onRead }) => (
-  <section id="library" className="library">
-    <div className="section-head">
-      <h2>{title}</h2>
-      {description && <p>{description}</p>}
+import DocumentCard from './DocumentCard'
+import { IconChevronRight } from './HomeIcons'
+
+const FeaturedGrid = ({
+  items,
+  title,
+  description,
+  activeSearch = '',
+  activeDepartment = '',
+  isLoading = false,
+  error = '',
+  hasMore = false,
+  onViewAll,
+  onLoadMore,
+  onOpen,
+}) => (
+  <section id="library" className="home-section">
+    <div className="section-header">
+      <div>
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
+      {(activeSearch || activeDepartment || hasMore) ? (
+        <button className="section-link" type="button" onClick={onViewAll}>
+          Xem tất cả
+          <IconChevronRight />
+        </button>
+      ) : null}
     </div>
-    <div className="library-grid">
-      {items.map((doc) => (
-        <div key={doc.id || doc.title} className="library-card">
-          <div className="chip">Tep {doc.size}</div>
-          <h3>{doc.title}</h3>
-          <p className="doc-meta">{doc.author}</p>
-          <p className="faculty">{doc.faculty}</p>
-          <div className="card-footer">
-            <span className="badge subtle">{doc.badge}</span>
-            <button className="text-btn" type="button" onClick={() => onRead?.(doc)}>
-              Doc ngay
+
+    {error ? <div className="notice error-message">{error}</div> : null}
+
+    {isLoading ? (
+      <div className="featured-grid" aria-label="Đang tải tài liệu">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div key={index} className="doc-card doc-card--skeleton">
+            <span />
+            <span />
+            <span />
+          </div>
+        ))}
+      </div>
+    ) : null}
+
+    {!isLoading && items.length > 0 ? (
+      <>
+        <div className="featured-grid">
+          {items.map((doc) => (
+            <DocumentCard
+              key={doc.id || doc.title}
+              {...doc}
+              onOpen={() => onOpen?.(doc)}
+            />
+          ))}
+        </div>
+
+        {hasMore ? (
+          <div className="featured-grid__more">
+            <button className="more-button" type="button" onClick={onLoadMore}>
+              Xem thêm tài liệu
+              <IconChevronRight />
             </button>
           </div>
-        </div>
-      ))}
-    </div>
+        ) : null}
+      </>
+    ) : null}
+
+    {!isLoading && !error && items.length === 0 ? (
+      <div className="empty-state">
+        <strong>Không có tài liệu phù hợp</strong>
+        <p>Hãy thử đổi từ khóa, bỏ lọc khoa/viện hoặc quay lại thư viện tổng.</p>
+      </div>
+    ) : null}
   </section>
 )
 

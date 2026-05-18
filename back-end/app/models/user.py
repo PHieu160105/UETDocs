@@ -72,12 +72,21 @@ class User(Base):
         passive_deletes=True            
     )
     
-    ratings = relationship(
-        "DocumentRating",
-        back_populates="user",          
+    document_votes = relationship(
+        "DocumentVote",
+        back_populates="user",
         lazy="select",
         cascade="all, delete-orphan",
         passive_deletes=True
+    )
+
+    document_reports = relationship(
+        "DocumentReport",
+        back_populates="user",
+        lazy="select",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        foreign_keys="DocumentReport.user_id",
     )
 
     approved_documents = relationship(
@@ -109,6 +118,13 @@ class User(Base):
         lazy="select",
         cascade="all, delete-orphan",
         passive_deletes=True
+    )
+
+    reviewed_document_reports = relationship(
+        "DocumentReport",
+        back_populates="reviewer",
+        lazy="select",
+        foreign_keys="[DocumentReport.reviewed_by]",
     )
 
     def __repr__(self):

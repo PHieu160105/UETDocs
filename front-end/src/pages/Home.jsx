@@ -1,81 +1,204 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Topbar from '../components/Topbar'
 import Hero from '../components/Hero'
+import DepartmentSection from '../components/DepartmentSection'
 import FeaturedGrid from '../components/FeaturedGrid'
-import ProcessSteps from '../components/ProcessSteps'
 import CTASection from '../components/CTASection'
 import Footer from '../components/Footer'
-import { documentAPI, downloadAndOpenDocument } from '../api/documents'
-import { featuredDocs, steps } from '../data/docs'
+import { documentAPI } from '../api/documents'
+import { normalizeDepartmentValue } from '../data/departments'
+import { buildDocumentSummary } from '../utils/documentPresentation'
 import '../styles/home.css'
 
-const toDisplayDocument = (doc) => ({
-  ...doc,
-  author: doc.uploader_id ? `User ${String(doc.uploader_id).slice(0, 8)}` : 'UETDocs',
-  faculty: doc.department,
-  size: doc.file_size < 1024 ** 2
-    ? `${(doc.file_size / 1024).toFixed(1)} KB`
-    : `${(doc.file_size / 1024 ** 2).toFixed(1)} MB`,
-  badge: doc.status === 'approved' ? 'Da duyet' : doc.status,
-})
+const FETCH_LIMIT = 12
+const INITIAL_VISIBLE_COUNT = 6
 
 const Home = () => {
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [documents, setDocuments] = useState([])
-  const [downloadError, setDownloadError] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [visibleState, setVisibleState] = useState({
+    filterKey: '',
+    count: INITIAL_VISIBLE_COUNT,
+  })
+
+  const searchQuery = (searchParams.get('search') || '').trim()
+  const currentDepartment = normalizeDepartmentValue(
+    searchParams.get('department') || searchParams.get('faculty') || '',
+  )
+  const filterKey = `${currentDepartment}::${searchQuery}`
+  const visibleCount = visibleState.filterKey === filterKey
+    ? visibleState.count
+    : INITIAL_VISIBLE_COUNT
+
+  useEffect(() => {
+    const legacyFaculty = searchParams.get('faculty')
+    const department = searchParams.get('department')
+
+    if (!legacyFaculty || department) return
+
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('faculty')
+
+    if (currentDepartment) {
+      nextParams.set('department', currentDepartment)
+    }
+
+    setSearchParams(nextParams, { replace: true })
+  }, [currentDepartment, searchParams, setSearchParams])
 
   useEffect(() => {
     let ignore = false
 
-    documentAPI.getDocuments({ limit: 6 })
+    window.requestAnimationFrame(() => {
+      if (!ignore) {
+        setIsLoading(true)
+        setError('')
+      }
+    })
+
+    const requestParams = { limit: FETCH_LIMIT }
+
+    if (searchQuery) requestParams.search = searchQuery
+    if (currentDepartment) requestParams.department = currentDepartment
+
+    documentAPI.getDocuments(requestParams)
       .then((res) => {
         if (!ignore) {
-          setDocuments((res.data || []).map(toDisplayDocument))
+          setDocuments((res.data || []).map(buildDocumentSummary))
         }
       })
-      .catch(() => {
-        if (!ignore) setDocuments([])
+      .catch((requestError) => {
+        if (!ignore) {
+          setDocuments([])
+          setError(
+            requestError.response?.data?.detail ||
+              requestError.message ||
+              'Không thể tải danh sách tài liệu.',
+          )
+        }
+      })
+      .finally(() => {
+        if (!ignore) setIsLoading(false)
       })
 
     return () => {
       ignore = true
     }
-  }, [])
+  }, [currentDepartment, searchQuery])
 
-  const visibleDocs = documents.length > 0 ? documents : featuredDocs
+  const previewableCount = useMemo(
+    () => documents.filter((doc) => doc.isPreviewable).length,
+    [documents],
+  )
 
-  const handleReadDocument = async (doc) => {
-    if (!doc.id) return
+  const heroStats = useMemo(
+    () => [
+      {
+        icon: 'docs',
+        value: String(documents.length),
+        label: currentDepartment ? 'Tài liệu phù hợp' : 'Tài liệu đang hiển thị',
+      },
+      {
+        icon: 'preview',
+        value: String(previewableCount),
+        label: 'Có xem trước',
+      },
+      {
+        icon: 'activity',
+        value: currentDepartment || 'Toàn kho',
+        label: searchQuery ? `Từ khóa: ${searchQuery}` : 'Bộ lọc hiện tại',
+      },
+    ],
+    [currentDepartment, documents.length, previewableCount, searchQuery],
+  )
 
-    setDownloadError('')
-    try {
-      await downloadAndOpenDocument(doc.id)
-    } catch (error) {
-      setDownloadError(error.response?.data?.detail || error.message || 'Khong the tai tai lieu.')
+  const visibleDocuments = documents.slice(0, visibleCount)
+  const hasMoreDocuments = documents.length > visibleCount
+
+  const scrollToLibrary = () => {
+    window.requestAnimationFrame(() => {
+      document.getElementById('library')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+  }
+
+  const updateFilters = (
+    { search = searchQuery, department = currentDepartment },
+    scrollAfterUpdate = false,
+  ) => {
+    const nextParams = new URLSearchParams()
+    const trimmedSearch = search.trim()
+    const trimmedDepartment = department.trim()
+
+    if (trimmedSearch) nextParams.set('search', trimmedSearch)
+    if (trimmedDepartment) nextParams.set('department', trimmedDepartment)
+
+    setSearchParams(nextParams)
+
+    if (scrollAfterUpdate) {
+      scrollToLibrary()
     }
   }
 
+  const handleOpenDocument = (doc) => {
+    if (doc.id) navigate(`/documents/${doc.id}`)
+  }
+
   return (
-    <div className="page">
+    <div className="page home-page">
       <Topbar />
-      <Hero featured={visibleDocs.slice(0, 3)} />
-      {downloadError && (
-        <div style={{ maxWidth: 1120, margin: '16px auto 0', color: '#b91c1c', padding: '0 24px' }}>
-          {downloadError}
-        </div>
-      )}
-      <FeaturedGrid
-        items={visibleDocs}
-        title="Tai lieu noi bat"
-        description="Cac tai lieu da duoc duyet va co the tai ve"
-        onRead={handleReadDocument}
-      />
-      <FeaturedGrid
-        items={visibleDocs.slice(0, 3)}
-        title="Ban da xem truoc do"
-        onRead={handleReadDocument}
-      />
-      <ProcessSteps steps={steps} />
-      <CTASection />
+
+      <main className="home-shell">
+        <Hero
+          searchValue={searchQuery}
+          stats={heroStats}
+          onSearch={(value) => updateFilters({ search: value }, true)}
+        />
+
+        <DepartmentSection
+          activeDepartment={currentDepartment}
+          onSelectDepartment={(department) => updateFilters({ department }, true)}
+          onViewAll={() => updateFilters({ department: '' }, true)}
+        />
+
+        <FeaturedGrid
+          items={visibleDocuments}
+          title="Tài liệu nổi bật"
+          description={
+            searchQuery || currentDepartment
+              ? 'Danh sách bên dưới đang phản ánh đúng bộ lọc hiện tại từ backend.'
+              : 'Các tài liệu công khai mới nhất đang có trên hệ thống.'
+          }
+          activeSearch={searchQuery}
+          activeDepartment={currentDepartment}
+          isLoading={isLoading}
+          error={error}
+          hasMore={hasMoreDocuments}
+          onViewAll={() => {
+            if (searchQuery || currentDepartment) {
+              updateFilters({ search: '', department: '' })
+              return
+            }
+
+            setVisibleState({ filterKey, count: documents.length })
+          }}
+          onLoadMore={() =>
+            setVisibleState({
+              filterKey,
+              count: visibleCount + INITIAL_VISIBLE_COUNT,
+            })}
+          onOpen={handleOpenDocument}
+        />
+
+        <CTASection />
+      </main>
+
       <Footer />
     </div>
   )
