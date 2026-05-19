@@ -55,10 +55,17 @@ class BookmarkService:
         db: AsyncSession,
         *,
         user_id: UUID,
+        search: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> list[BookmarkDetailResponse]:
-        bookmarks = await self.bookmark_crud.get_user_bookmarks(db, user_id, skip=skip, limit=limit)
+        bookmarks = await self.bookmark_crud.get_user_bookmarks(
+            db,
+            user_id,
+            search=search,
+            skip=skip,
+            limit=limit,
+        )
         return [
             BookmarkDetailResponse(
                 document=self._build_document_response(document),
@@ -66,3 +73,12 @@ class BookmarkService:
             )
             for document, bookmarked_at in bookmarks
         ]
+
+    async def count_my_bookmarks(
+        self,
+        db: AsyncSession,
+        *,
+        user_id: UUID,
+        search: str | None = None,
+    ) -> int:
+        return await self.bookmark_crud.count_user_bookmarks(db, user_id, search=search)

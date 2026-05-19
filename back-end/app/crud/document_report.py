@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document_report import DocumentReport
 from app.models.document import Document
 from app.models.user import User
-from app.schemas.document_report import DocumentReportReason, DocumentReportStatus
+from app.schemas.document_report import DocumentReportReason
 
 
 class DocumentReportCRUD:
@@ -56,13 +55,11 @@ class DocumentReportCRUD:
         user_id: UUID,
         document_id: UUID,
         reason: DocumentReportReason,
-        description: Optional[str],
     ) -> DocumentReport:
         report = DocumentReport(
             user_id=user_id,
             document_id=document_id,
             reason=reason,
-            description=description,
         )
         db.add(report)
         await db.flush()
@@ -75,44 +72,12 @@ class DocumentReportCRUD:
         report_id: UUID,
         *,
         reason: DocumentReportReason,
-        description: Optional[str],
-        status: DocumentReportStatus,
-        admin_note: Optional[str],
-        reviewed_by: Optional[UUID],
-        reviewed_at: Optional[datetime],
     ) -> Optional[DocumentReport]:
         await db.execute(
             update(DocumentReport)
             .where(DocumentReport.id == report_id)
             .values(
                 reason=reason,
-                description=description,
-                status=status,
-                admin_note=admin_note,
-                reviewed_by=reviewed_by,
-                reviewed_at=reviewed_at,
-            )
-        )
-        return await self.get_report_by_id(db, report_id)
-
-    async def update_report_admin_fields(
-        self,
-        db: AsyncSession,
-        report_id: UUID,
-        *,
-        status: DocumentReportStatus,
-        admin_note: Optional[str],
-        reviewed_by: Optional[UUID],
-        reviewed_at: Optional[datetime],
-    ) -> Optional[DocumentReport]:
-        await db.execute(
-            update(DocumentReport)
-            .where(DocumentReport.id == report_id)
-            .values(
-                status=status,
-                admin_note=admin_note,
-                reviewed_by=reviewed_by,
-                reviewed_at=reviewed_at,
             )
         )
         return await self.get_report_by_id(db, report_id)
@@ -121,27 +86,21 @@ class DocumentReportCRUD:
         self,
         db: AsyncSession,
         *,
-        status: DocumentReportStatus | None = None,
         document_id: UUID | None = None,
         user_id: UUID | None = None,
         skip: int = 0,
         limit: int = 20,
-    ) -> list[tuple[DocumentReport, Optional[str], Optional[str], Optional[str]]]:
-        reviewer = User.__table__.alias("reviewer")
+    ) -> list[tuple[DocumentReport, Optional[str], Optional[str]]]:
         query = (
             select(
                 DocumentReport,
                 Document.title.label("document_title"),
                 User.username.label("reporter_username"),
-                reviewer.c.username.label("reviewer_username"),
             )
             .join(Document, Document.id == DocumentReport.document_id, isouter=True)
             .join(User, User.id == DocumentReport.user_id, isouter=True)
-            .join(reviewer, reviewer.c.id == DocumentReport.reviewed_by, isouter=True)
         )
 
-        if status is not None:
-            query = query.where(DocumentReport.status == status)
         if document_id is not None:
             query = query.where(DocumentReport.document_id == document_id)
         if user_id is not None:
@@ -155,29 +114,23 @@ class DocumentReportCRUD:
         self,
         db: AsyncSession,
         report_id: UUID,
-    ) -> Optional[tuple[DocumentReport, Optional[str], Optional[str], Optional[str]]]:
-        reviewer = User.__table__.alias("reviewer")
+    ) -> Optional[tuple[DocumentReport, Optional[str], Optional[str]]]:
         result = await db.execute(
             select(
                 DocumentReport,
                 Document.title.label("document_title"),
                 User.username.label("reporter_username"),
-                reviewer.c.username.label("reviewer_username"),
             )
             .join(Document, Document.id == DocumentReport.document_id, isouter=True)
             .join(User, User.id == DocumentReport.user_id, isouter=True)
-            .join(reviewer, reviewer.c.id == DocumentReport.reviewed_by, isouter=True)
             .where(DocumentReport.id == report_id)
         )
         return result.one_or_none()
 
-    async def count_open_reports_by_document(self, db: AsyncSession, document_id: UUID) -> int:
+    async def count_reports_by_document(self, db: AsyncSession, document_id: UUID) -> int:
         result = await db.execute(
             select(func.count())
             .select_from(DocumentReport)
-            .where(
-                DocumentReport.document_id == document_id,
-                or_(DocumentReport.status == "pending", DocumentReport.status == "reviewed"),
-            )
+            .where(DocumentReport.document_id == document_id)
         )
         return int(result.scalar_one() or 0)

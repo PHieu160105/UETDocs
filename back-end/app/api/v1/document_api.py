@@ -9,13 +9,21 @@ from app.auth.authorization import get_current_user, require_admin
 from app.core.database import get_db
 from app.schemas.document import (
     DocumentRegister,
+    DocumentRejectRequest,
     DocumentResponse,
     DocumentStatus,
     DocumentUpdate,
     DocumentUploadUrlRequest,
 )
 from app.schemas.document_report import DocumentReportCreateRequest, DocumentReportResponse
-from app.schemas.document_vote import DocumentInteractionResponse, DocumentVoteResponse, DocumentVoteUpsertRequest
+from app.schemas.document_vote import (
+    DocumentInteractionResponse,
+    DocumentVoteDetailResponse,
+    DocumentVoteResponse,
+    DocumentVoteUpsertRequest,
+)
+from app.schemas.course import CourseMembershipResponse
+from app.services.course_service import CourseService
 from app.services.document_interaction_service import DocumentInteractionService
 from app.services.document_service import DocumentService
 
@@ -23,6 +31,7 @@ from app.services.document_service import DocumentService
 router = APIRouter()
 document_service = DocumentService()
 document_interaction_service = DocumentInteractionService()
+course_service = CourseService()
 
 
 @router.get("/documents", response_model=List[DocumentResponse])
@@ -157,6 +166,63 @@ async def register_document(
     return document
 
 
+@router.get("/documents/me/uploads", response_model=List[DocumentResponse])
+async def get_my_uploaded_documents(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    status: DocumentStatus | None = Query(None),
+    search: str | None = Query(None),
+):
+    user_id = getattr(current_user, "id", None)
+    total = await document_service.count_documents(
+        db,
+        uploader_id=user_id,
+        status=status,
+        search=search,
+    )
+    response.headers["X-Total-Count"] = str(total)
+
+    return await document_service.list_documents(
+        db,
+        skip=skip,
+        limit=limit,
+        uploader_id=user_id,
+        status=status,
+        search=search,
+    )
+
+
+@router.get("/document-votes/me", response_model=List[DocumentVoteDetailResponse])
+async def get_my_document_votes(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+    vote: Literal["like", "dislike"] | None = Query(None),
+    search: str | None = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    user_id = getattr(current_user, "id", None)
+    total = await document_interaction_service.count_user_votes(
+        db,
+        user_id=user_id,
+        vote_type=vote,
+        search=search,
+    )
+    response.headers["X-Total-Count"] = str(total)
+    return await document_interaction_service.list_user_votes(
+        db,
+        user_id=user_id,
+        vote_type=vote,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
+
+
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
 async def get_document(document_id: UUID, db: AsyncSession = Depends(get_db)):
     document = await document_service.get_document_detail(db, document_id)
@@ -252,6 +318,37 @@ async def create_document_report(
     )
     await db.commit()
     return report
+
+
+@router.get("/documents/{document_id}/courses/me", response_model=List[CourseMembershipResponse])
+async def list_my_courses_for_document(
+    document_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    return await course_service.list_course_memberships_for_document(
+        db,
+        owner_id=getattr(current_user, "id", None),
+        document_id=document_id,
+    )
+
+
+@router.post("/documents/{document_id}/reject", response_model=DocumentResponse, dependencies=[Depends(require_admin)])
+async def reject_document(
+    document_id: UUID,
+    payload: DocumentRejectRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+):
+    rejected_document = await document_service.reject_document(
+        db,
+        document_id,
+        payload,
+    )
+    if rejected_document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    await db.commit()
+    return rejected_document
 
 
 @router.patch("/documents/{document_id}", response_model=DocumentResponse, dependencies=[Depends(require_admin)])

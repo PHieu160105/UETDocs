@@ -1,494 +1,657 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import {
-  downloadedDocuments,
-  reviewedDocuments,
-  uploadedDocuments,
-} from '../data/userDocuments'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Topbar from '../components/Topbar'
+import { useAuth } from '../context/AuthContext'
+import { documentAPI } from '../api/documents'
+import { buildDocumentSummary } from '../utils/documentPresentation'
+import { fmt, fmtRelativeDate, fmtSize } from '../utils/format'
 import '../styles/documents.css'
 
-const statusMap = {
-  approved: { label: 'Đã duyệt', className: 'is-approved' },
-  pending: { label: 'Chờ duyệt', className: 'is-pending' },
-  rejected: { label: 'Từ chối', className: 'is-rejected' },
-}
-
-const NAV_ITEMS = [
-  {
-    id: 'overview',
-    label: 'Tổng quan',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-    ),
-  },
-  {
-    id: 'uploaded',
-    label: 'Đã tải lên',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    ),
-  },
-  {
-    id: 'downloaded',
-    label: 'Đã tải xuống',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    ),
-  },
-  {
-    id: 'reviewed',
-    label: 'Đánh giá',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-    ),
-  },
+const TAB_ITEMS = [
+  { id: 'overview', label: 'Tong quan', icon: '◦' },
+  { id: 'uploaded', label: 'Da tai len', icon: '↑' },
+  { id: 'downloaded', label: 'Da tai xuong', icon: '↓' },
+  { id: 'bookmarks', label: 'Bookmark', icon: '⌑' },
+  { id: 'folders', label: 'Thu muc', icon: '□' },
+  { id: 'liked', label: 'Da thich', icon: '♡' },
 ]
 
-const renderStars = (rating) =>
-  Array.from({ length: 5 }, (_, index) => (
-    <span key={index} className={index < rating ? 'star star--on' : 'star'}>
-      ★
-    </span>
-  ))
+const VALID_TABS = new Set(TAB_ITEMS.map((item) => item.id))
 
-/* ─── Sub-views ─────────────────────────────────────────────────────────── */
-
-const OverviewView = ({ uploaded, downloaded, reviewed, user, onNavigate }) => {
-  const approvedCount = uploaded.filter((d) => d.status === 'approved').length
-  const pendingCount = uploaded.filter((d) => d.status === 'pending').length
-
-  return (
-    <div className="view-overview">
-      {/* Greeting banner */}
-      <div className="overview-banner">
-        <div className="overview-banner__left">
-          <p className="overview-banner__greeting">Chào mừng trở lại 👋</p>
-          <h2 className="overview-banner__name">{user?.name || 'Người dùng'}</h2>
-          <p className="overview-banner__sub">
-            Bạn có <strong>{pendingCount} tài liệu</strong> đang chờ duyệt và{' '}
-            <strong>{approvedCount} tài liệu</strong> đã được phê duyệt.
-          </p>
-          <div className="overview-banner__actions">
-            <button type="button" className="ov-btn ov-btn--primary" onClick={() => onNavigate('uploaded')}>
-              <span>↑</span> Xem tài liệu đã tải
-            </button>
-            <button type="button" className="ov-btn ov-btn--ghost" onClick={() => onNavigate('downloaded')}>
-              <span>↓</span> Lịch sử tải xuống
-            </button>
-          </div>
-        </div>
-        <div className="overview-banner__illustration" aria-hidden="true">
-          <div className="ov-illo">
-            <div className="ov-illo__circle" />
-            <div className="ov-illo__doc ov-illo__doc--1">📄</div>
-            <div className="ov-illo__doc ov-illo__doc--2">📊</div>
-            <div className="ov-illo__doc ov-illo__doc--3">📝</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stat cards */}
-      <div className="overview-stats">
-        <div className="overview-stat overview-stat--blue">
-          <div className="overview-stat__header">
-            <span className="overview-stat__icon">↑</span>
-            <span className="overview-stat__trend">+2 tuần này</span>
-          </div>
-          <span className="overview-stat__value">{uploaded.length}</span>
-          <span className="overview-stat__label">Tài liệu đã tải lên</span>
-          <div className="overview-stat__bar"><span /></div>
-        </div>
-        <div className="overview-stat overview-stat--sky">
-          <div className="overview-stat__header">
-            <span className="overview-stat__icon">↓</span>
-            <span className="overview-stat__trend">+1 tuần này</span>
-          </div>
-          <span className="overview-stat__value">{downloaded.length}</span>
-          <span className="overview-stat__label">Tài liệu đã tải xuống</span>
-          <div className="overview-stat__bar"><span /></div>
-        </div>
-        <div className="overview-stat overview-stat--mint">
-          <div className="overview-stat__header">
-            <span className="overview-stat__icon">★</span>
-            <span className="overview-stat__trend">+1 tuần này</span>
-          </div>
-          <span className="overview-stat__value">{reviewed.length}</span>
-          <span className="overview-stat__label">Tài liệu đã đánh giá</span>
-          <div className="overview-stat__bar"><span /></div>
-        </div>
-        <div className="overview-stat overview-stat--amber">
-          <div className="overview-stat__header">
-            <span className="overview-stat__icon">⏳</span>
-            <span className="overview-stat__trend">Đang xử lý</span>
-          </div>
-          <span className="overview-stat__value">{pendingCount}</span>
-          <span className="overview-stat__label">Chờ phê duyệt</span>
-          <div className="overview-stat__bar"><span /></div>
-        </div>
-      </div>
-
-      {/* 2-column recent activity */}
-      <div className="overview-grid">
-        {/* Recent uploads */}
-        <div className="overview-recent">
-          <div className="overview-recent__head">
-            <div>
-              <p className="view-kicker">Tải lên gần đây</p>
-              <h3 className="overview-recent__title">Tài liệu của bạn</h3>
-            </div>
-            <button type="button" className="ov-see-all" onClick={() => onNavigate('uploaded')}>
-              Xem tất cả →
-            </button>
-          </div>
-          <div className="overview-list">
-            {uploaded.slice(0, 4).map((doc) => {
-              const st = statusMap[doc.status]
-              return (
-                <div key={doc.id} className="overview-row">
-                  <div className="overview-row__icon-wrap">
-                    <span className="overview-row__icon">📄</span>
-                  </div>
-                  <div className="overview-row__info">
-                    <strong>{doc.title}</strong>
-                    <span>{doc.subject}</span>
-                  </div>
-                  <div className="overview-row__meta">
-                    <span className={`status-badge ${st.className}`}>{st.label}</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Right column: downloaded + reviewed previews */}
-        <div className="overview-side">
-          {/* Downloaded preview */}
-          <div className="overview-mini-panel">
-            <div className="overview-recent__head">
-              <div>
-                <p className="view-kicker" style={{ color: '#0891b2' }}>Tải xuống</p>
-                <h3 className="overview-recent__title">Đã truy cập</h3>
-              </div>
-              <button type="button" className="ov-see-all" onClick={() => onNavigate('downloaded')}>
-                Xem tất cả →
-              </button>
-            </div>
-            <div className="overview-mini-list">
-              {downloaded.slice(0, 3).map((doc) => (
-                <div key={doc.id} className="overview-mini-row">
-                  <span className="overview-mini-icon">📥</span>
-                  <div className="overview-mini-info">
-                    <strong>{doc.title}</strong>
-                    <span>{doc.size} · {doc.downloadedAt}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Reviewed preview */}
-          <div className="overview-mini-panel">
-            <div className="overview-recent__head">
-              <div>
-                <p className="view-kicker" style={{ color: '#059669' }}>Đánh giá</p>
-                <h3 className="overview-recent__title">Đã nhận xét</h3>
-              </div>
-              <button type="button" className="ov-see-all" onClick={() => onNavigate('reviewed')}>
-                Xem tất cả →
-              </button>
-            </div>
-            <div className="overview-mini-list">
-              {reviewed.slice(0, 2).map((doc) => (
-                <div key={doc.id} className="overview-mini-row">
-                  <span className="overview-mini-icon">⭐</span>
-                  <div className="overview-mini-info">
-                    <strong>{doc.title}</strong>
-                    <span>{doc.rating}/5 · {doc.reviewedAt}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+const EMPTY_MESSAGES = {
+  uploaded: 'Ban chua tai len tai lieu nao',
+  downloaded: 'Ban chua tai xuong tai lieu nao',
+  bookmarks: 'Ban chua luu bookmark nao',
+  folders: 'Ban chua co thu muc nao',
+  liked: 'Ban chua thich tai lieu nao',
 }
 
-const UploadedView = () => {
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [expandedRejectId, setExpandedRejectId] = useState(null)
-
-  const visible = useMemo(
-    () =>
-      uploadedDocuments.filter(
-        (doc) => statusFilter === 'all' || doc.status === statusFilter,
-      ),
-    [statusFilter],
-  )
-
-  return (
-    <div className="view-section">
-      <div className="view-head">
-        <div>
-          <p className="view-kicker">Tài liệu đã tải lên</p>
-          <h2 className="view-title">Giao dịch tài liệu gần đây</h2>
-        </div>
-        <div className="view-filters">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="approved">Đã duyệt</option>
-            <option value="pending">Chờ duyệt</option>
-            <option value="rejected">Từ chối</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="documents-table">
-        <div className="documents-table__head">
-          <span>ID</span>
-          <span>Tài liệu</span>
-          <span>Môn / nhóm</span>
-          <span>Dung lượng</span>
-          <span>Thời gian</span>
-          <span>Trạng thái</span>
-        </div>
-        <div className="documents-table__body">
-          {visible.map((doc) => {
-            const status = statusMap[doc.status]
-            const isExpanded = expandedRejectId === doc.id
-            return (
-              <div key={doc.id} className="documents-row-wrap">
-                <article className="documents-row">
-                  <span className="documents-row__id">#{doc.id.slice(-3)}</span>
-                  <div className="documents-row__title">
-                    <strong>{doc.title}</strong>
-                    <span>{doc.subject}</span>
-                  </div>
-                  <span className="documents-row__cell">{doc.subject}</span>
-                  <span className="documents-row__cell">{doc.size}</span>
-                  <span className="documents-row__cell">{doc.uploadedAt}</span>
-                  <div className="documents-row__status">
-                    <span className={`status-badge ${status.className}`}>
-                      {status.label}
-                    </span>
-                    {doc.status === 'rejected' && (
-                      <button
-                        type="button"
-                        className="documents-link"
-                        onClick={() =>
-                          setExpandedRejectId((cur) =>
-                            cur === doc.id ? null : doc.id,
-                          )
-                        }
-                      >
-                        {isExpanded ? 'Ẩn lý do' : 'Xem lý do'}
-                      </button>
-                    )}
-                  </div>
-                </article>
-                {doc.status === 'rejected' && isExpanded && (
-                  <div className="documents-reason">
-                    <p className="documents-reason__label">Lý do từ chối</p>
-                    <p>{doc.rejectReason}</p>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
+const STATUS_LABELS = {
+  approved: 'Da duyet',
+  pending: 'Cho duyet',
+  rejected: 'Tu choi',
 }
 
-const DownloadedView = () => (
-  <div className="view-section">
-    <div className="view-head">
-      <div>
-        <p className="view-kicker">Tài liệu đã tải xuống</p>
-        <h2 className="view-title">Lịch sử truy cập</h2>
-      </div>
-      <span className="view-count">{downloadedDocuments.length} mục</span>
-    </div>
-    <div className="documents-cardlist">
-      {downloadedDocuments.map((doc) => (
-        <article key={doc.id} className="documents-card">
-          <strong>{doc.title}</strong>
-          <span>{doc.subject}</span>
-          <div className="documents-card__meta">
-            <span>{doc.size}</span>
-            <span>Đã tải {doc.downloadedAt}</span>
-          </div>
-        </article>
-      ))}
-    </div>
+const ACTIVITY_ICONS = {
+  uploaded: '↑',
+  downloaded: '↓',
+  bookmarks: '⌑',
+  liked: '♡',
+}
+
+const sanitizeTab = (value) => (VALID_TABS.has(value) ? value : 'overview')
+
+const EmptyState = ({ title, message, actionLabel, onAction }) => (
+  <div className="docs-empty">
+    <h3>{title}</h3>
+    <p>{message}</p>
+    {actionLabel && onAction ? (
+      <button type="button" className="docs-primary-btn" onClick={onAction}>
+        {actionLabel}
+      </button>
+    ) : null}
   </div>
 )
-
-const ReviewedView = () => (
-  <div className="view-section">
-    <div className="view-head">
-      <div>
-        <p className="view-kicker">Đánh giá</p>
-        <h2 className="view-title">Tài liệu đã đánh giá</h2>
-      </div>
-      <span className="view-count">{reviewedDocuments.length} mục</span>
-    </div>
-    <div className="documents-reviewlist">
-      {reviewedDocuments.map((doc) => (
-        <article key={doc.id} className="documents-review">
-          <div className="documents-review__top">
-            <div>
-              <strong>{doc.title}</strong>
-              <span>{doc.subject}</span>
-            </div>
-            <div className="documents-stars" aria-label={`${doc.rating} sao`}>
-              {renderStars(doc.rating)}
-            </div>
-          </div>
-          <p>{doc.note}</p>
-          <span className="documents-review__date">Đánh giá ngày {doc.reviewedAt}</span>
-        </article>
-      ))}
-    </div>
-  </div>
-)
-
-/* ─── Main page ──────────────────────────────────────────────────────────── */
 
 const MyDocuments = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('overview')
-  const [libExpanded, setLibExpanded] = useState(true)
-  const initial = (user?.name || user?.email || 'U').trim().charAt(0).toUpperCase()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = sanitizeTab(searchParams.get('tab'))
 
-  const SUBJECTS = ['CTDL & GT', 'Toán cao cấp', 'Hệ điều hành', 'Trí tuệ nhân tạo', 'Cơ sở dữ liệu']
+  const [uploads, setUploads] = useState([])
+  const [downloads, setDownloads] = useState([])
+  const [bookmarks, setBookmarks] = useState([])
+  const [courses, setCourses] = useState([])
+  const [liked, setLiked] = useState([])
+  const [selectedCourseId, setSelectedCourseId] = useState('')
+  const [selectedCourseDetail, setSelectedCourseDetail] = useState(null)
+  const [courseName, setCourseName] = useState('')
+  const [courseDescription, setCourseDescription] = useState('')
+  const [showCreateCourse, setShowCreateCourse] = useState(false)
+  const [uploadStatusFilter, setUploadStatusFilter] = useState('all')
+  const [searchValue, setSearchValue] = useState('')
+  const [expandedRejectId, setExpandedRejectId] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCourseDetailLoading, setIsCourseDetailLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'uploaded':
-        return <UploadedView />
-      case 'downloaded':
-        return <DownloadedView />
-      case 'reviewed':
-        return <ReviewedView />
-      default:
-        return (
-          <OverviewView
-            uploaded={uploadedDocuments}
-            downloaded={downloadedDocuments}
-            reviewed={reviewedDocuments}
-            user={user}
-            onNavigate={setActiveTab}
-          />
-        )
+  const openDocumentDetail = (documentId) => {
+    if (!documentId) return
+    navigate(`/documents/${documentId}`)
+  }
+
+  const changeTab = (tabId) => {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('tab', tabId)
+    setSearchParams(nextParams)
+    setSearchValue('')
+  }
+
+  const loadAllData = async () => {
+    setIsLoading(true)
+    setError('')
+    try {
+      const [uploadsRes, downloadsRes, bookmarksRes, coursesRes, likedRes] = await Promise.all([
+        documentAPI.getMyUploads({ limit: 100 }),
+        documentAPI.getMyDownloads({ limit: 100 }),
+        documentAPI.getMyBookmarks({ limit: 100 }),
+        documentAPI.getMyCourses({ limit: 100 }),
+        documentAPI.getMyVotes({ limit: 100, vote: 'like' }),
+      ])
+
+      const nextUploads = (uploadsRes.data || []).map(buildDocumentSummary)
+      const nextDownloads = (downloadsRes.data || []).map((item) => ({
+        ...item,
+        document: buildDocumentSummary(item.document),
+      }))
+      const nextBookmarks = (bookmarksRes.data || []).map((item) => ({
+        ...item,
+        document: buildDocumentSummary(item.document),
+      }))
+      const nextCourses = coursesRes.data || []
+      const nextLiked = (likedRes.data || []).map((item) => ({
+        ...item,
+        document: buildDocumentSummary(item.document),
+      }))
+
+      setUploads(nextUploads)
+      setDownloads(nextDownloads)
+      setBookmarks(nextBookmarks)
+      setCourses(nextCourses)
+      setLiked(nextLiked)
+      setSelectedCourseId((current) => (
+        nextCourses.some((course) => course.id === current) ? current : (nextCourses[0]?.id || '')
+      ))
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.detail ||
+        requestError.message ||
+        'Khong the tai du lieu tai lieu cua ban.',
+      )
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  return (
-    <div className="documents-page">
-      <Topbar />
+  useEffect(() => {
+    if (!searchParams.get('tab')) {
+      const next = new URLSearchParams(searchParams)
+      next.set('tab', 'overview')
+      setSearchParams(next, { replace: true })
+    }
+    loadAllData()
+  }, [])
 
-      <main className="documents-shell">
-        {/* ─── Sidebar ─── */}
-        <aside className="documents-sidebar">
+  useEffect(() => {
+    if (!selectedCourseId) {
+      setSelectedCourseDetail(null)
+      return undefined
+    }
 
-          {/* Profile — circular avatar + name + school */}
-          <div className="sb-profile">
-            <div className="sb-avatar">{initial}</div>
-            <div className="sb-profile__info">
-              <strong className="sb-name">{user?.name || 'Người dùng'}</strong>
-              <span className="sb-school">UET — ĐHQG Hà Nội</span>
+    let ignore = false
+    setIsCourseDetailLoading(true)
+
+    documentAPI.getCourseDetail(selectedCourseId)
+      .then((response) => {
+        if (ignore) return
+        setSelectedCourseDetail({
+          ...response.data,
+          documents: (response.data.documents || []).map((item) => ({
+            ...item,
+            document: buildDocumentSummary(item.document),
+          })),
+        })
+      })
+      .catch(() => {
+        if (!ignore) setSelectedCourseDetail(null)
+      })
+      .finally(() => {
+        if (!ignore) setIsCourseDetailLoading(false)
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [selectedCourseId, courses])
+
+  const normalizedSearch = searchValue.trim().toLowerCase()
+
+  const uploadStats = useMemo(() => {
+    const approved = uploads.filter((item) => item.status === 'approved').length
+    const pending = uploads.filter((item) => item.status === 'pending').length
+    const rejected = uploads.filter((item) => item.status === 'rejected').length
+    const totalViews = uploads.reduce((sum, item) => sum + (item.download_count || 0), 0)
+    return { approved, pending, rejected, totalViews }
+  }, [uploads])
+
+  const recentActivity = useMemo(() => {
+    const items = [
+      ...uploads.slice(0, 8).map((item) => ({
+        id: `upload:${item.id}`,
+        type: 'uploaded',
+        documentId: item.id,
+        title: item.title,
+        detail: STATUS_LABELS[item.status] || item.status,
+        time: item.created_at,
+      })),
+      ...downloads.slice(0, 8).map((item) => ({
+        id: `download:${item.document.id}`,
+        type: 'downloaded',
+        documentId: item.document.id,
+        title: item.document.title,
+        detail: item.document.subject,
+        time: item.last_downloaded_at,
+      })),
+      ...bookmarks.slice(0, 8).map((item) => ({
+        id: `bookmark:${item.document.id}`,
+        type: 'bookmarks',
+        documentId: item.document.id,
+        title: item.document.title,
+        detail: item.document.subject,
+        time: item.bookmarked_at,
+      })),
+      ...liked.slice(0, 8).map((item) => ({
+        id: `liked:${item.document.id}`,
+        type: 'liked',
+        documentId: item.document.id,
+        title: item.document.title,
+        detail: item.document.subject,
+        time: item.updated_at,
+      })),
+    ]
+
+    return items
+      .sort((left, right) => new Date(right.time).getTime() - new Date(left.time).getTime())
+      .slice(0, 8)
+  }, [uploads, downloads, bookmarks, liked])
+
+  const matchesSearch = (document) => {
+    if (!normalizedSearch) return true
+    return [
+      document.title,
+      document.subject,
+      document.department,
+      document.original_name,
+    ].some((value) => String(value || '').toLowerCase().includes(normalizedSearch))
+  }
+
+  const visibleUploads = uploads.filter((item) => (
+    matchesSearch(item) &&
+    (uploadStatusFilter === 'all' || item.status === uploadStatusFilter)
+  ))
+  const visibleDownloads = downloads.filter((item) => matchesSearch(item.document))
+  const visibleBookmarks = bookmarks.filter((item) => matchesSearch(item.document))
+  const visibleLiked = liked.filter((item) => matchesSearch(item.document))
+  const visibleCourses = courses.filter((course) => (
+    !normalizedSearch ||
+    String(course.name || '').toLowerCase().includes(normalizedSearch) ||
+    String(course.description || '').toLowerCase().includes(normalizedSearch)
+  ))
+  const activeCourse = courses.find((item) => item.id === selectedCourseId) || null
+
+  const renderDocumentRow = (document, meta, options = {}) => (
+    <article key={`${meta.kind}:${document.id}`} className="docs-row">
+      <div className="docs-row__main">
+        <button
+          type="button"
+          className="docs-row__summary"
+          onClick={() => openDocumentDetail(document.id)}
+        >
+          <div className="docs-row__file">{document.fileTypeLabel}</div>
+          <div className="docs-row__body">
+            <div className="docs-row__title-line">
+              <strong>{document.title}</strong>
+              {options.status ? (
+                <span className={`docs-status docs-status--${document.status}`}>
+                  {STATUS_LABELS[document.status] || document.status}
+                </span>
+              ) : null}
+            </div>
+            <p>{document.subject} · {document.departmentLabel} · {fmtSize(document.file_size)}</p>
+            <div className="docs-row__meta">
+              <span>{fmt(document.download_count)} luot tai</span>
+              <span>{fmt(document.like_count)} luot thich</span>
+              <span>{meta.label}</span>
             </div>
           </div>
+        </button>
+        {options.status && document.status === 'rejected' && document.reject_reason ? (
+          <>
+            <button
+              type="button"
+              className="docs-inline-link"
+              onClick={() => setExpandedRejectId((current) => (current === document.id ? '' : document.id))}
+            >
+              {expandedRejectId === document.id ? 'An ly do tu choi' : 'Xem ly do tu choi'}
+            </button>
+            {expandedRejectId === document.id ? (
+              <div className="docs-reject-box">
+                <span>Ly do tu choi</span>
+                <p>{document.reject_reason}</p>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+      {options.action ? <div className="docs-row__action">{options.action}</div> : null}
+    </article>
+  )
 
-          {/* Stats row */}
-          <div className="sb-stats">
-            <div className="sb-stat">
-              <strong>{uploadedDocuments.length}</strong>
-              <span>Tải lên</span>
-            </div>
-            <div className="sb-stat">
-              <strong>{downloadedDocuments.length}</strong>
-              <span>Tải xuống</span>
-            </div>
-            <div className="sb-stat">
-              <strong>{reviewedDocuments.length}</strong>
-              <span>Đánh giá</span>
-            </div>
+  const renderTabSearch = (placeholder) => (
+    <div className="docs-toolbar">
+      <input
+        className="docs-search"
+        type="search"
+        placeholder={placeholder}
+        value={searchValue}
+        onChange={(event) => setSearchValue(event.target.value)}
+      />
+    </div>
+  )
+
+  const createCourse = async (event) => {
+    event.preventDefault()
+    if (!courseName.trim()) return
+
+    try {
+      const created = await documentAPI.createCourse({
+        name: courseName.trim(),
+        description: courseDescription.trim() || null,
+      })
+      setCourseName('')
+      setCourseDescription('')
+      setShowCreateCourse(false)
+      setSelectedCourseId(created.data.id)
+      await loadAllData()
+    } catch (requestError) {
+      window.alert(requestError.response?.data?.detail || 'Khong the tao thu muc.')
+    }
+  }
+
+  const removeCourseDocument = async (documentId) => {
+    if (!selectedCourseId) return
+    try {
+      await documentAPI.removeDocumentFromCourse(selectedCourseId, documentId)
+      await loadAllData()
+    } catch (requestError) {
+      window.alert(requestError.response?.data?.detail || 'Khong the go tai lieu khoi thu muc.')
+    }
+  }
+
+  const renderOverview = () => (
+    <div className="docs-panel-section">
+      <section className="docs-stats-grid">
+        <article className="docs-stat-card"><strong>{fmt(uploads.length)}</strong><span>Tai len</span></article>
+        <article className="docs-stat-card"><strong>{fmt(downloads.length)}</strong><span>Tai xuong</span></article>
+        <article className="docs-stat-card"><strong>{fmt(bookmarks.length)}</strong><span>Bookmark</span></article>
+        <article className="docs-stat-card"><strong>{fmt(courses.length)}</strong><span>Thu muc</span></article>
+        <article className="docs-stat-card"><strong>{fmt(liked.length)}</strong><span>Da thich</span></article>
+        <article className="docs-stat-card"><strong>{fmt(uploadStats.totalViews)}</strong><span>Luot tai tai lieu cua ban</span></article>
+      </section>
+
+      <section className="docs-section-card">
+        <div className="docs-section-head">
+          <div>
+            <h2>Hoat dong gan day</h2>
+            <p>Tong hop cac tai lieu ban vua tai len, tai xuong, luu hoac thich.</p>
           </div>
-
-          {/* Upload CTA — pill style like Studocu */}
-          <button
-            type="button"
-            className="sb-new-btn"
-            onClick={() => navigate('/upload')}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Tải tài liệu lên
-          </button>
-
-          {/* Main nav */}
-          <nav className="sb-nav" aria-label="Điều hướng tài liệu">
-            {NAV_ITEMS.map((item) => (
+        </div>
+        {recentActivity.length === 0 ? (
+          <EmptyState
+            title="Ban chua co hoat dong nao"
+            message="Hay tai tai lieu dau tien hoac luu mot tai lieu de bat dau."
+            actionLabel="Tai tai lieu len"
+            onAction={() => navigate('/upload')}
+          />
+        ) : (
+          <div className="docs-activity-list">
+            {recentActivity.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                className={`sb-nav__item${activeTab === item.id ? ' sb-nav__item--active' : ''}`}
-                onClick={() => setActiveTab(item.id)}
+                className="docs-activity-row docs-activity-row--button"
+                onClick={() => openDocumentDetail(item.documentId)}
               >
-                <span className="sb-nav__icon" aria-hidden="true">{item.icon}</span>
-                <span>{item.label}</span>
+                <span className="docs-activity-row__icon">{ACTIVITY_ICONS[item.type] || '•'}</span>
+                <div className="docs-activity-row__body">
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
+                </div>
+                <span className="docs-activity-row__time">{fmtRelativeDate(item.time)}</span>
               </button>
             ))}
-          </nav>
+          </div>
+        )}
+      </section>
+    </div>
+  )
 
-          {/* Library section — collapsible like Studocu */}
-          <div className="sb-section">
-            <button
-              type="button"
-              className="sb-section__header"
-              onClick={() => setLibExpanded((v) => !v)}
-              aria-expanded={libExpanded}
-            >
-              <span>Thư viện của tôi</span>
-              <svg
-                className={`sb-section__chevron${libExpanded ? ' sb-section__chevron--open' : ''}`}
-                width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+  const renderUploads = () => (
+    <section className="docs-section-card">
+      <div className="docs-section-head">
+        <div>
+          <h2>Tai lieu da tai len</h2>
+          <p>{uploadStats.approved} da duyet · {uploadStats.pending} cho duyet · {uploadStats.rejected} bi tu choi</p>
+        </div>
+        <button type="button" className="docs-primary-btn" onClick={() => navigate('/upload')}>
+          Tai len moi
+        </button>
+      </div>
+
+      {renderTabSearch('Tim tai lieu da tai len...')}
+
+      <div className="docs-filter-row">
+        {['all', 'approved', 'pending', 'rejected'].map((status) => (
+          <button
+            key={status}
+            type="button"
+            className={`docs-chip${uploadStatusFilter === status ? ' is-active' : ''}`}
+            onClick={() => setUploadStatusFilter(status)}
+          >
+            {status === 'all' ? 'Tat ca' : STATUS_LABELS[status]}
+          </button>
+        ))}
+      </div>
+
+      {visibleUploads.length === 0 ? (
+        <EmptyState
+          title={normalizedSearch ? 'Khong tim thay tai lieu phu hop' : EMPTY_MESSAGES.uploaded}
+          message={normalizedSearch ? 'Hay thu thay doi tu khoa hoac bo loc.' : 'Khi ban tai tai lieu len, trang thai duyet se hien thi tai day.'}
+          actionLabel={normalizedSearch ? '' : 'Tai tai lieu len'}
+          onAction={normalizedSearch ? null : () => navigate('/upload')}
+        />
+      ) : (
+        <div className="docs-list">
+          {visibleUploads.map((document) => renderDocumentRow(
+            document,
+            { kind: 'upload', label: fmtRelativeDate(document.created_at) },
+            { status: true },
+          ))}
+        </div>
+      )}
+    </section>
+  )
+
+  const renderDownloads = () => (
+    <section className="docs-section-card">
+      <div className="docs-section-head">
+        <div>
+          <h2>Tai lieu da tai xuong</h2>
+          <p>Lich su tai xuong cua ban.</p>
+        </div>
+      </div>
+      {renderTabSearch('Tim trong lich su tai xuong...')}
+      {visibleDownloads.length === 0 ? (
+        <EmptyState
+          title={normalizedSearch ? 'Khong tim thay tai lieu phu hop' : EMPTY_MESSAGES.downloaded}
+          message={normalizedSearch ? 'Hay thu thay doi tu khoa.' : 'Nhung tai lieu ban tai xuong se xuat hien tai day.'}
+          actionLabel={normalizedSearch ? '' : 'Kham pha tai lieu'}
+          onAction={normalizedSearch ? null : () => navigate('/documents')}
+        />
+      ) : (
+        <div className="docs-list">
+          {visibleDownloads.map((item) => renderDocumentRow(
+            item.document,
+            { kind: 'download', label: fmtRelativeDate(item.last_downloaded_at) },
+          ))}
+        </div>
+      )}
+    </section>
+  )
+
+  const renderBookmarks = () => (
+    <section className="docs-section-card">
+      <div className="docs-section-head">
+        <div>
+          <h2>Bookmark</h2>
+          <p>Cac tai lieu ban da luu de xem lai sau.</p>
+        </div>
+      </div>
+      {renderTabSearch('Tim bookmark...')}
+      {visibleBookmarks.length === 0 ? (
+        <EmptyState
+          title={normalizedSearch ? 'Khong tim thay tai lieu phu hop' : EMPTY_MESSAGES.bookmarks}
+          message={normalizedSearch ? 'Hay thu thay doi tu khoa.' : 'Khi luu mot tai lieu, ban se thay no o day.'}
+          actionLabel={normalizedSearch ? '' : 'Kham pha tai lieu'}
+          onAction={normalizedSearch ? null : () => navigate('/documents')}
+        />
+      ) : (
+        <div className="docs-list">
+          {visibleBookmarks.map((item) => renderDocumentRow(
+            item.document,
+            { kind: 'bookmark', label: fmtRelativeDate(item.bookmarked_at) },
+          ))}
+        </div>
+      )}
+    </section>
+  )
+
+  const renderLiked = () => (
+    <section className="docs-section-card">
+      <div className="docs-section-head">
+        <div>
+          <h2>Da thich</h2>
+          <p>Cac tai lieu ban da danh dau thich.</p>
+        </div>
+      </div>
+      {renderTabSearch('Tim tai lieu da thich...')}
+      {visibleLiked.length === 0 ? (
+        <EmptyState
+          title={normalizedSearch ? 'Khong tim thay tai lieu phu hop' : EMPTY_MESSAGES.liked}
+          message={normalizedSearch ? 'Hay thu thay doi tu khoa.' : 'Khi thich mot tai lieu, ban se thay no o day.'}
+          actionLabel={normalizedSearch ? '' : 'Kham pha tai lieu'}
+          onAction={normalizedSearch ? null : () => navigate('/documents')}
+        />
+      ) : (
+        <div className="docs-list">
+          {visibleLiked.map((item) => renderDocumentRow(
+            item.document,
+            { kind: 'liked', label: fmtRelativeDate(item.updated_at) },
+          ))}
+        </div>
+      )}
+    </section>
+  )
+
+  const renderFolders = () => (
+    <section className="docs-section-card">
+      <div className="docs-section-head">
+        <div>
+          <h2>Thu muc</h2>
+          <p>Quan ly cac thu muc tai lieu ca nhan cua ban.</p>
+        </div>
+        <button type="button" className="docs-primary-btn" onClick={() => setShowCreateCourse((current) => !current)}>
+          {showCreateCourse ? 'Dong' : 'Tao thu muc'}
+        </button>
+      </div>
+
+      {renderTabSearch('Tim thu muc...')}
+
+      {showCreateCourse ? (
+        <form className="docs-create-form" onSubmit={createCourse}>
+          <input
+            type="text"
+            placeholder="Ten thu muc"
+            value={courseName}
+            onChange={(event) => setCourseName(event.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="Mo ta ngan"
+            value={courseDescription}
+            onChange={(event) => setCourseDescription(event.target.value)}
+          />
+          <button type="submit" className="docs-primary-btn">Tao</button>
+        </form>
+      ) : null}
+
+      {visibleCourses.length === 0 ? (
+        <EmptyState
+          title={normalizedSearch ? 'Khong tim thay thu muc phu hop' : EMPTY_MESSAGES.folders}
+          message={normalizedSearch ? 'Hay thu thay doi tu khoa.' : 'Tao thu muc dau tien de nhom cac tai lieu lien quan.'}
+          actionLabel={normalizedSearch ? '' : 'Tao thu muc'}
+          onAction={normalizedSearch ? null : () => setShowCreateCourse(true)}
+        />
+      ) : (
+        <>
+          <div className="docs-course-grid">
+            {visibleCourses.map((course) => (
+              <button
+                key={course.id}
+                type="button"
+                className={`docs-course-card${selectedCourseId === course.id ? ' is-active' : ''}`}
+                onClick={() => setSelectedCourseId(course.id)}
               >
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-
-            {libExpanded && (
-              <div className="sb-section__body">
-                {SUBJECTS.map((sub) => (
-                  <button key={sub} type="button" className="sb-nav__item sb-nav__item--sub">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                    <span>{sub}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+                <strong>{course.name}</strong>
+                <p>{course.document_count} tai lieu</p>
+                <span>{fmtRelativeDate(course.updated_at)}</span>
+              </button>
+            ))}
           </div>
 
-        </aside>
+          {activeCourse ? (
+            <div className="docs-course-detail">
+              <div className="docs-course-detail__head">
+                <div>
+                  <h3>{activeCourse.name}</h3>
+                  {activeCourse.description ? <p>{activeCourse.description}</p> : null}
+                </div>
+              </div>
+              {isCourseDetailLoading ? (
+                <div className="docs-loading">Dang tai noi dung thu muc...</div>
+              ) : selectedCourseDetail?.documents?.length ? (
+                <div className="docs-list">
+                  {selectedCourseDetail.documents.map((item) => renderDocumentRow(
+                    item.document,
+                    { kind: 'course', label: fmtRelativeDate(item.added_at) },
+                    {
+                      action: (
+                        <button
+                          type="button"
+                          className="docs-inline-link docs-inline-link--action"
+                          onClick={() => removeCourseDocument(item.document.id)}
+                        >
+                          Go khoi thu muc
+                        </button>
+                      ),
+                    },
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title="Thu muc nay chua co tai lieu"
+                  message="Ban co the them tai lieu vao thu muc tu trang chi tiet tai lieu."
+                />
+              )}
+            </div>
+          ) : null}
+        </>
+      )}
+    </section>
+  )
 
-        {/* ─── Content area ─── */}
-        <section className="documents-content">
-          <div className="documents-panel">
-            {renderContent()}
+  const userInitial = (user?.name || user?.email || 'U').trim().charAt(0).toUpperCase()
+
+  return (
+    <div className="docs-page">
+      <Topbar />
+      <main className="docs-main">
+        <section className="docs-header">
+          <div className="docs-header__avatar">{userInitial}</div>
+          <div className="docs-header__copy">
+            <h1>Tai lieu cua toi</h1>
+            <p>Quan ly toan bo hoat dong tai lieu cua ban</p>
           </div>
         </section>
+
+        <nav className="docs-tabs" aria-label="Tai lieu cua toi">
+          {TAB_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`docs-tab${activeTab === item.id ? ' is-active' : ''}`}
+              onClick={() => changeTab(item.id)}
+            >
+              <span>{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        {isLoading ? <div className="docs-loading">Dang tai du lieu...</div> : null}
+        {!isLoading && error ? <div className="docs-error">{error}</div> : null}
+
+        {!isLoading && !error ? (
+          <div className="docs-content">
+            {activeTab === 'overview' ? renderOverview() : null}
+            {activeTab === 'uploaded' ? renderUploads() : null}
+            {activeTab === 'downloaded' ? renderDownloads() : null}
+            {activeTab === 'bookmarks' ? renderBookmarks() : null}
+            {activeTab === 'folders' ? renderFolders() : null}
+            {activeTab === 'liked' ? renderLiked() : null}
+          </div>
+        ) : null}
       </main>
     </div>
   )

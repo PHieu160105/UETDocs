@@ -43,6 +43,7 @@ class Document(Base):
     year = Column(Integer, nullable=True, index=True)
     teacher = Column(String(255), nullable=True)
     note = Column(Text, nullable=True)
+    reject_reason = Column(Text, nullable=True)
 
 
     download_count = Column(Integer, default=0, nullable=False)

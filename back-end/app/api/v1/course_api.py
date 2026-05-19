@@ -1,7 +1,7 @@
 from uuid import UUID
 from typing import List
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.authorization import get_current_user
@@ -32,14 +32,24 @@ async def create_course(
 
 @router.get("/courses", response_model=List[CourseResponse])
 async def list_my_courses(
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
+    search: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
+    total = await course_service.count_my_courses(
+        db,
+        getattr(current_user, "id", None),
+        search=search,
+    )
+    response.headers["X-Total-Count"] = str(total)
+
     return await course_service.list_my_courses(
         db,
         getattr(current_user, "id", None),
+        search=search,
         skip=skip,
         limit=limit,
     )

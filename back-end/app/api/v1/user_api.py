@@ -165,7 +165,6 @@ async def get_user_activity(user_id: UUID, db: AsyncSession = Depends(get_db)):
                 "document_id": report.document_id,
                 "document_title": document_title or "(Khong ro)",
                 "reason": report.reason,
-                "status": report.status,
                 "created_at": report.created_at,
                 "updated_at": report.updated_at,
             }
@@ -178,6 +177,6 @@ async def get_user_activity(user_id: UUID, db: AsyncSession = Depends(get_db)):
                 "description": course.description,
                 "created_at": course.created_at,
             }
-            for course in courses
+            for course, _document_count in courses
         ],
     )

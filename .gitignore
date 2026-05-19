@@ -32,6 +32,8 @@ back-end/*.log
 back-end/.DS_Store
 back-end/Thumbs.db
 
+front-end/.env
+front-end/env
 # Logs
 logs
 *.log

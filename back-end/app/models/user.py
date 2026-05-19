@@ -120,12 +120,5 @@ class User(Base):
         passive_deletes=True
     )
 
-    reviewed_document_reports = relationship(
-        "DocumentReport",
-        back_populates="reviewer",
-        lazy="select",
-        foreign_keys="[DocumentReport.reviewed_by]",
-    )
-
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', role='{self.role}')>"

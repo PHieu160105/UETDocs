@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import case, delete, func, select, update
+from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.document import Document
 from app.models.document_vote import DocumentVote
 from app.schemas.document_vote import DocumentVoteType
 
@@ -43,6 +44,71 @@ class DocumentVoteCRUD:
             .limit(limit)
         )
         return list(result.all())
+
+    async def get_user_voted_documents(
+        self,
+        db: AsyncSession,
+        *,
+        user_id: UUID,
+        vote_type: DocumentVoteType | None = None,
+        search: str | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> list[tuple[DocumentVote, Document]]:
+        query = (
+            select(DocumentVote, Document)
+            .join(Document, Document.id == DocumentVote.document_id)
+            .where(DocumentVote.user_id == user_id)
+        )
+        if vote_type is not None:
+            query = query.where(DocumentVote.vote_type == vote_type)
+        if search:
+            pattern = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Document.title.ilike(pattern),
+                    Document.original_name.ilike(pattern),
+                    Document.department.ilike(pattern),
+                    Document.subject.ilike(pattern),
+                )
+            )
+
+        result = await db.execute(
+            query.order_by(DocumentVote.updated_at.desc(), DocumentVote.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.all())
+
+    async def count_user_votes(
+        self,
+        db: AsyncSession,
+        *,
+        user_id: UUID,
+        vote_type: DocumentVoteType | None = None,
+        search: str | None = None,
+    ) -> int:
+        query = (
+            select(func.count())
+            .select_from(DocumentVote)
+            .join(Document, Document.id == DocumentVote.document_id)
+            .where(DocumentVote.user_id == user_id)
+        )
+        if vote_type is not None:
+            query = query.where(DocumentVote.vote_type == vote_type)
+        if search:
+            pattern = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Document.title.ilike(pattern),
+                    Document.original_name.ilike(pattern),
+                    Document.department.ilike(pattern),
+                    Document.subject.ilike(pattern),
+                )
+            )
+
+        result = await db.execute(query)
+        return int(result.scalar_one() or 0)
 
     async def create_vote(
         self,

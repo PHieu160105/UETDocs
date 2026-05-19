@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.schemas.document import DocumentResponse
 from app.schemas.document_report import DocumentReportSummary
 
 
@@ -36,10 +37,18 @@ class DocumentVoteActivityItem(BaseModel):
     updated_at: datetime
 
 
+class DocumentVoteDetailResponse(BaseModel):
+    document: DocumentResponse
+    vote_type: DocumentVoteType
+    voted_at: datetime
+    updated_at: datetime
+
+
 class DocumentInteractionResponse(BaseModel):
     document_id: UUID
     like_count: int
     dislike_count: int
     report_count: int
+    is_bookmarked: bool = False
     current_vote: Optional[DocumentVoteType] = None
     current_report: Optional[DocumentReportSummary] = None

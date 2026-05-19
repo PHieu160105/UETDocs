@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.document import DocumentCRUD
 from app.crud.document_download import DocumentDownloadCRUD
-from app.schemas.document import DocumentCreate, DocumentResponse, DocumentUpdate, DocumentStatus
+from app.schemas.document import DocumentCreate, DocumentRejectRequest, DocumentResponse, DocumentUpdate, DocumentStatus
 from app.services.storage_service import StorageService
 
 
@@ -362,6 +362,27 @@ class DocumentService:
             status="approved",
             approved_by=approved_by,
             approved_at=approved_at or datetime.now(timezone.utc),
+            clear_reject_reason=True,
+        )
+        if document is None:
+            return None
+        return DocumentResponse.model_validate(document)
+
+    async def reject_document(
+        self,
+        db: AsyncSession,
+        document_id: UUID,
+        payload: DocumentRejectRequest,
+    ) -> Optional[DocumentResponse]:
+        reject_reason = payload.reject_reason.strip()
+        if not reject_reason:
+            raise HTTPException(status_code=400, detail="reject_reason is required")
+
+        document = await self.document_crud.set_document_status(
+            db,
+            document_id,
+            status="rejected",
+            reject_reason=reject_reason,
         )
         if document is None:
             return None

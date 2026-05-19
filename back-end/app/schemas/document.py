@@ -28,6 +28,7 @@ class DocumentCreate(DocumentBase):
     year: Optional[int] = None
     teacher: Optional[str] = None
     note: Optional[str] = None
+    reject_reason: Optional[str] = None
     download_count: int = 0
     like_count: int = 0
     dislike_count: int = 0
@@ -69,11 +70,16 @@ class DocumentUpdate(BaseModel):
     year: Optional[int] = None
     teacher: Optional[str] = None
     note: Optional[str] = None
+    reject_reason: Optional[str] = None
     download_count: Optional[int] = None
     like_count: Optional[int] = None
     dislike_count: Optional[int] = None
     report_count: Optional[int] = None
     approved_at: Optional[datetime] = None
+
+
+class DocumentRejectRequest(BaseModel):
+    reject_reason: str
 
 
 class DocumentResponse(BaseModel):
@@ -90,6 +96,7 @@ class DocumentResponse(BaseModel):
     approved_by: Optional[UUID]
     department: str
     subject: str
+    reject_reason: Optional[str]
     download_count: int
     like_count: int
     dislike_count: int

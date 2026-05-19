@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional, List, Tuple
 from uuid import UUID
 
-from sqlalchemy import select, delete, update, func
+from sqlalchemy import select, delete, update, func, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.course import Course, CourseDocument
@@ -29,17 +29,50 @@ class CourseCRUD:
         self,
         db: AsyncSession,
         owner_id: UUID,
+        search: str | None = None,
         skip: int = 0,
         limit: int = 20,
-    ) -> List[Course]:
-        result = await db.execute(
-            select(Course)
+    ) -> List[tuple[Course, int]]:
+        query = (
+            select(
+                Course,
+                func.count(CourseDocument.document_id).label("document_count"),
+            )
+            .outerjoin(CourseDocument, CourseDocument.course_id == Course.id)
             .where(Course.owner_id == owner_id)
-            .order_by(Course.created_at.desc())
-            .offset(skip)
-            .limit(limit)
+            .group_by(Course.id)
         )
-        return result.scalars().all()
+        if search:
+            pattern = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Course.name.ilike(pattern),
+                    Course.description.ilike(pattern),
+                )
+            )
+
+        result = await db.execute(
+            query.order_by(Course.created_at.desc()).offset(skip).limit(limit)
+        )
+        return list(result.all())
+
+    async def count_courses_by_owner(
+        self,
+        db: AsyncSession,
+        owner_id: UUID,
+        search: str | None = None,
+    ) -> int:
+        query = select(func.count()).select_from(Course).where(Course.owner_id == owner_id)
+        if search:
+            pattern = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Course.name.ilike(pattern),
+                    Course.description.ilike(pattern),
+                )
+            )
+        result = await db.execute(query)
+        return int(result.scalar_one() or 0)
 
     async def create_course(self, db: AsyncSession, data: CourseCreate) -> Course:
         course = Course(**data.model_dump(exclude_unset=True))
@@ -124,3 +157,44 @@ class CourseCRUD:
             .where(CourseDocument.course_id == course_id)
         )
         return int(result.scalar_one() or 0)
+
+    async def list_course_memberships_for_document(
+        self,
+        db: AsyncSession,
+        *,
+        owner_id: UUID,
+        document_id: UUID,
+    ) -> List[tuple[Course, int, bool]]:
+        contains_document = func.max(
+            case((CourseDocument.document_id == document_id, 1), else_=0)
+        ).label("contains_document")
+        document_count = func.count(CourseDocument.document_id).label("document_count")
+
+        result = await db.execute(
+            select(Course, document_count, contains_document)
+            .outerjoin(CourseDocument, CourseDocument.course_id == Course.id)
+            .where(Course.owner_id == owner_id)
+            .group_by(Course.id)
+            .order_by(Course.created_at.desc())
+        )
+        return [
+            (course, int(count or 0), bool(contains))
+            for course, count, contains in result.all()
+        ]
+
+    async def get_recent_course_document_links_by_owner(
+        self,
+        db: AsyncSession,
+        *,
+        owner_id: UUID,
+        limit: int = 10,
+    ) -> List[Tuple[CourseDocument, Course, Optional[Document]]]:
+        result = await db.execute(
+            select(CourseDocument, Course, Document)
+            .join(Course, Course.id == CourseDocument.course_id)
+            .join(Document, Document.id == CourseDocument.document_id, isouter=True)
+            .where(Course.owner_id == owner_id)
+            .order_by(CourseDocument.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.all())

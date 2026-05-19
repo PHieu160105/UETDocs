@@ -29,6 +29,7 @@ class CourseResponse(BaseModel):
     name: str
     description: Optional[str]
     owner_id: UUID
+    document_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -60,3 +61,7 @@ class CourseDocumentItemResponse(BaseModel):
 
 class CourseDetailResponse(CourseResponse):
     documents: List[CourseDocumentItemResponse] = Field(default_factory=list)
+
+
+class CourseMembershipResponse(CourseResponse):
+    contains_document: bool = False

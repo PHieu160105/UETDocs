@@ -12,6 +12,7 @@ from app.schemas.course import (
     CourseCreate,
     CourseDetailResponse,
     CourseDocumentItemResponse,
+    CourseMembershipResponse,
     CourseResponse,
     CourseUpdate,
 )
@@ -56,11 +57,30 @@ class CourseService:
         db: AsyncSession,
         owner_id: UUID,
         *,
+        search: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> list[CourseResponse]:
-        courses = await self.course_crud.get_courses_by_owner(db, owner_id, skip=skip, limit=limit)
-        return [CourseResponse.model_validate(course) for course in courses]
+        courses = await self.course_crud.get_courses_by_owner(
+            db,
+            owner_id,
+            search=search,
+            skip=skip,
+            limit=limit,
+        )
+        return [
+            CourseResponse.model_validate(course).model_copy(update={"document_count": document_count})
+            for course, document_count in courses
+        ]
+
+    async def count_my_courses(
+        self,
+        db: AsyncSession,
+        owner_id: UUID,
+        *,
+        search: str | None = None,
+    ) -> int:
+        return await self.course_crud.count_courses_by_owner(db, owner_id, search=search)
 
     async def get_course_detail(
         self,
@@ -85,7 +105,13 @@ class CourseService:
             )
             for document, added_at in documents
         ]
-        return CourseDetailResponse.model_validate(course).model_copy(update={"documents": items})
+        document_count = await self.course_crud.count_course_documents(db, course_id)
+        return CourseDetailResponse.model_validate(course).model_copy(
+            update={
+                "document_count": document_count,
+                "documents": items,
+            }
+        )
 
     async def update_course(
         self,
@@ -160,6 +186,32 @@ class CourseService:
             raise HTTPException(status_code=409, detail="Document already added to this course")
 
         return await self.course_crud.add_document_to_course(db, course_id, document_id)
+
+    async def list_course_memberships_for_document(
+        self,
+        db: AsyncSession,
+        *,
+        owner_id: UUID,
+        document_id: UUID,
+    ) -> list[CourseMembershipResponse]:
+        document = await self.document_crud.get_document_by_id(db, document_id)
+        if document is None or document.status != "approved":
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        memberships = await self.course_crud.list_course_memberships_for_document(
+            db,
+            owner_id=owner_id,
+            document_id=document_id,
+        )
+        return [
+            CourseMembershipResponse.model_validate(course).model_copy(
+                update={
+                    "document_count": document_count,
+                    "contains_document": contains_document,
+                }
+            )
+            for course, document_count, contains_document in memberships
+        ]
 
     async def remove_document(
         self,

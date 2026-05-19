@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional, List
 from uuid import UUID
 
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.bookmark import Bookmark
@@ -48,21 +48,53 @@ class BookmarkCRUD:
         self,
         db: AsyncSession,
         user_id: UUID,
+        search: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> List[tuple[Document, object]]:
-        result = await db.execute(
+        query = (
             select(Document, Bookmark.created_at)
             .join(Bookmark, Bookmark.document_id == Document.id)
             .where(Bookmark.user_id == user_id)
-            .order_by(Bookmark.created_at.desc())
-            .offset(skip)
-            .limit(limit)
+        )
+        if search:
+            pattern = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Document.title.ilike(pattern),
+                    Document.original_name.ilike(pattern),
+                    Document.department.ilike(pattern),
+                    Document.subject.ilike(pattern),
+                )
+            )
+
+        result = await db.execute(
+            query.order_by(Bookmark.created_at.desc()).offset(skip).limit(limit)
         )
         return list(result.all())
 
-    async def count_user_bookmarks(self, db: AsyncSession, user_id: UUID) -> int:
-        result = await db.execute(
-            select(func.count()).select_from(Bookmark).where(Bookmark.user_id == user_id)
+    async def count_user_bookmarks(
+        self,
+        db: AsyncSession,
+        user_id: UUID,
+        search: str | None = None,
+    ) -> int:
+        query = (
+            select(func.count())
+            .select_from(Bookmark)
+            .join(Document, Bookmark.document_id == Document.id)
+            .where(Bookmark.user_id == user_id)
         )
+        if search:
+            pattern = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Document.title.ilike(pattern),
+                    Document.original_name.ilike(pattern),
+                    Document.department.ilike(pattern),
+                    Document.subject.ilike(pattern),
+                )
+            )
+
+        result = await db.execute(query)
         return int(result.scalar_one() or 0)

@@ -45,10 +45,17 @@ class DocumentDownloadService:
         db: AsyncSession,
         *,
         user_id: UUID,
+        search: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> list[DocumentDownloadDetailResponse]:
-        downloads = await self.download_crud.get_user_downloaded_documents(db, user_id, skip=skip, limit=limit)
+        downloads = await self.download_crud.get_user_downloaded_documents(
+            db,
+            user_id,
+            search=search,
+            skip=skip,
+            limit=limit,
+        )
         return [
             DocumentDownloadDetailResponse(
                 document=self._build_document_response(document),
@@ -56,3 +63,12 @@ class DocumentDownloadService:
             )
             for document, last_downloaded_at in downloads
         ]
+
+    async def count_my_downloads(
+        self,
+        db: AsyncSession,
+        *,
+        user_id: UUID,
+        search: str | None = None,
+    ) -> int:
+        return await self.download_crud.count_user_downloaded_documents(db, user_id, search=search)

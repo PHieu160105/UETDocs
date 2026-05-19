@@ -21,7 +21,7 @@ export const adminAPI = {
     authAPI.post(`/documents/${id}/approve`),
 
   rejectDocument: (id, reason) =>
-    authAPI.patch(`/documents/${id}`, { status: 'rejected', description: reason }),
+    authAPI.post(`/documents/${id}/reject`, { reject_reason: reason }),
 
   updateDocument: (id, payload) =>
     authAPI.patch(`/documents/${id}`, payload),

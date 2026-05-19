@@ -110,6 +110,34 @@ class DocumentCRUD:
         result = await db.execute(query)
         return int(result.scalar_one() or 0)
 
+    async def count_documents_grouped_by_status(
+        self,
+        db: AsyncSession,
+        *,
+        uploader_id: UUID,
+    ) -> dict[str, int]:
+        result = await db.execute(
+            select(Document.status, func.count())
+            .where(Document.uploader_id == uploader_id)
+            .group_by(Document.status)
+        )
+        counts = {"approved": 0, "pending": 0, "rejected": 0}
+        for status, count in result.all():
+            counts[str(status)] = int(count or 0)
+        return counts
+
+    async def sum_download_count_by_uploader(
+        self,
+        db: AsyncSession,
+        *,
+        uploader_id: UUID,
+    ) -> int:
+        result = await db.execute(
+            select(func.coalesce(func.sum(Document.download_count), 0))
+            .where(Document.uploader_id == uploader_id)
+        )
+        return int(result.scalar_one() or 0)
+
     async def create_document(self, db: AsyncSession, data: DocumentCreate) -> Document:
         payload = data.model_dump(exclude_unset=True)
         document = Document(**payload)
@@ -175,12 +203,18 @@ class DocumentCRUD:
         status: DocumentStatus,
         approved_by: Optional[UUID] = None,
         approved_at: Optional[datetime] = None,
+        reject_reason: Optional[str] = None,
+        clear_reject_reason: bool = False,
     ) -> Optional[Document]:
         values = {"status": status}
         if approved_by is not None:
             values["approved_by"] = approved_by
         if approved_at is not None:
             values["approved_at"] = approved_at
+        if reject_reason is not None:
+            values["reject_reason"] = reject_reason
+        elif clear_reject_reason:
+            values["reject_reason"] = None
 
         await db.execute(update(Document).where(Document.id == document_id).values(**values))
         return await self.get_document_by_id(db, document_id)

@@ -25,11 +25,13 @@ const IconDownload = () => (
     <line x1="12" y1="15" x2="12" y2="3" />
   </svg>
 )
+
 const IconBookmark = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
   </svg>
 )
+
 const IconShare = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="18" cy="5" r="3" />
@@ -39,22 +41,32 @@ const IconShare = () => (
     <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
   </svg>
 )
+
 const IconThumbUp = () => (
   <svg viewBox="0 0 24 24" fill="currentColor">
     <path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
   </svg>
 )
+
 const IconThumbDown = () => (
   <svg viewBox="0 0 24 24" fill="currentColor">
     <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z" />
   </svg>
 )
+
 const IconFlag = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
     <line x1="4" y1="22" x2="4" y2="15" />
   </svg>
 )
+
+const IconFolder = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </svg>
+)
+
 const IconFile = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -64,6 +76,7 @@ const IconFile = () => (
     <polyline points="10 9 9 9 8 9" />
   </svg>
 )
+
 const IconZoomIn = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
@@ -72,6 +85,7 @@ const IconZoomIn = () => (
     <line x1="8" y1="11" x2="14" y2="11" />
   </svg>
 )
+
 const IconZoomOut = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
@@ -79,6 +93,7 @@ const IconZoomOut = () => (
     <line x1="8" y1="11" x2="14" y2="11" />
   </svg>
 )
+
 const IconExpand = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="15 3 21 3 21 9" />
@@ -87,6 +102,14 @@ const IconExpand = () => (
     <line x1="3" y1="21" x2="10" y2="14" />
   </svg>
 )
+
+const REPORT_REASONS = [
+  { value: 'incorrect', label: 'Thông tin không chính xác' },
+  { value: 'spam', label: 'Spam hoặc trùng lặp' },
+  { value: 'copyright', label: 'Vấn đề bản quyền' },
+  { value: 'inappropriate', label: 'Nội dung không phù hợp' },
+  { value: 'other', label: 'Lý do khác' },
+]
 
 const emptyFeedback = {
   tone: '',
@@ -125,38 +148,6 @@ const getUnsupportedPreviewMessage = (doc) => {
   return 'Tài liệu này chưa hỗ trợ xem trực tiếp trên website ở phiên bản hiện tại.'
 }
 
-const RelatedDocCard = ({ doc, onClick }) => {
-  const ext = (doc.mime_type || '').includes('pdf')
-    ? 'PDF'
-    : (doc.mime_type || '').includes('image')
-      ? 'IMG'
-      : 'DOC'
-
-  const likePercent = doc.rating_count > 0
-    ? Math.round((doc.rating_average / 5) * 100)
-    : null
-
-  return (
-    <button className="rd-card" type="button" onClick={onClick}>
-      <div className="rd-card__thumb">
-        <span className="rd-card__ext">{ext}</span>
-        <IconFile />
-      </div>
-      <div className="rd-card__body">
-        {likePercent !== null ? (
-          <span className="rd-card__rating">
-            <IconThumbUp />
-            {likePercent}% {doc.rating_count ? `(${doc.rating_count})` : ''}
-          </span>
-        ) : null}
-        <p className="rd-card__title">{doc.title}</p>
-        <p className="rd-card__meta">{doc.subject || doc.department || 'Tài liệu chung'}</p>
-        {doc.file_size ? <p className="rd-card__pages">{Math.ceil(doc.file_size / 50000)} trang</p> : null}
-      </div>
-    </button>
-  )
-}
-
 const DetailAction = ({ icon, label, meta, className = '', onClick }) => (
   <button className={`dd-action-btn ${className}`.trim()} type="button" onClick={onClick}>
     <span className="dd-action-btn__icon">{icon}</span>
@@ -174,6 +165,34 @@ const DetailInfoRow = ({ label, value }) => (
   </div>
 )
 
+const RelatedDocCard = ({ doc, onClick }) => {
+  const ext = doc.fileTypeLabel || 'DOC'
+  const totalVotes = Number(doc.like_count || 0) + Number(doc.dislike_count || 0)
+  const likePercent = totalVotes > 0
+    ? Math.round((Number(doc.like_count || 0) / totalVotes) * 100)
+    : null
+
+  return (
+    <button className="rd-card" type="button" onClick={onClick}>
+      <div className="rd-card__thumb">
+        <span className="rd-card__ext">{ext}</span>
+        <IconFile />
+      </div>
+      <div className="rd-card__body">
+        {likePercent !== null ? (
+          <span className="rd-card__rating">
+            <IconThumbUp />
+            {likePercent}% ({totalVotes})
+          </span>
+        ) : null}
+        <p className="rd-card__title">{doc.title}</p>
+        <p className="rd-card__meta">{doc.subject || doc.department || 'Tài liệu chung'}</p>
+        {doc.file_size ? <p className="rd-card__pages">{Math.ceil(doc.file_size / 50000)} trang</p> : null}
+      </div>
+    </button>
+  )
+}
+
 const DocumentDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -190,40 +209,44 @@ const DocumentDetail = () => {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState(emptyFeedback)
   const [relatedDocs, setRelatedDocs] = useState([])
+  const [interaction, setInteraction] = useState(null)
   const [zoom, setZoom] = useState(100)
-  const [saved, setSaved] = useState(false)
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
   const [pdfPageCount, setPdfPageCount] = useState(0)
   const [currentPdfPage, setCurrentPdfPage] = useState(1)
   const [pdfViewportWidth, setPdfViewportWidth] = useState(0)
   const [pdfLoadError, setPdfLoadError] = useState('')
+  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [courseMemberships, setCourseMemberships] = useState([])
+  const [isCourseLoading, setIsCourseLoading] = useState(false)
+  const [courseName, setCourseName] = useState('')
+  const [courseDescription, setCourseDescription] = useState('')
+  const [isCourseSubmitting, setIsCourseSubmitting] = useState(false)
+  const [reportReason, setReportReason] = useState('incorrect')
 
   const previewKind = getPreviewKind(document)
   const previewLabel = getPreviewLabel(previewKind, document)
-  const likePercent = document?.ratingCount > 0
-    ? Math.round((document.ratingAverage / 5) * 100)
-    : null
-  const dislikePercent = likePercent !== null ? 100 - likePercent : null
+  const liveLikeCount = Number(interaction?.like_count ?? document?.likeCount ?? 0)
+  const liveDislikeCount = Number(interaction?.dislike_count ?? document?.dislikeCount ?? 0)
+  const liveTotalVotes = liveLikeCount + liveDislikeCount
+  const likePercent = liveTotalVotes > 0 ? Math.round((liveLikeCount / liveTotalVotes) * 100) : null
+  const dislikePercent = liveTotalVotes > 0 ? Math.round((liveDislikeCount / liveTotalVotes) * 100) : null
   const estimatedPages = document?.file_size ? Math.max(1, Math.ceil(document.file_size / 50000)) : null
   const visiblePageCount = previewKind === 'pdf' && pdfPageCount > 0 ? pdfPageCount : estimatedPages
   const downloadButtonLabel = isAuthenticated ? 'Tải xuống' : 'Đăng nhập để tải'
   const shouldShowDescriptionToggle = (document?.description?.length || 0) > 180
   const pdfScale = Math.max(0.6, zoom / 100)
-  const pdfPageWidth = pdfViewportWidth > 0
-    ? Math.max(280, pdfViewportWidth - 8)
-    : 820
+  const pdfPageWidth = pdfViewportWidth > 0 ? Math.max(280, pdfViewportWidth - 8) : 820
+  const saved = Boolean(interaction?.is_bookmarked)
+  const currentVote = interaction?.current_vote || null
 
   const syncCurrentPdfPage = () => {
     if (previewKind !== 'pdf' || !viewerRef.current || pdfPageRefs.current.length === 0) return
 
-    const viewer = viewerRef.current
     const pageNodes = pdfPageRefs.current.filter(Boolean)
-
     if (pageNodes.length === 0) return
 
-    const viewerRect = viewer.getBoundingClientRect()
-    const viewportTop = 0
-    const viewportBottom = window.innerHeight
     const readerBandTop = window.innerHeight * 0.22
     const readerBandBottom = window.innerHeight * 0.62
     let nextPage = null
@@ -244,20 +267,7 @@ const DocumentDetail = () => {
 
     if (nextPage !== null) {
       setCurrentPdfPage((current) => (current === nextPage ? current : nextPage))
-      return
     }
-
-    const firstVisibleIndex = pageNodes.findIndex((pageNode) => {
-      const pageRect = pageNode.getBoundingClientRect()
-
-      return (
-        pageRect.bottom > Math.max(viewerRect.top, viewportTop) + 16 &&
-        pageRect.top < Math.min(viewerRect.bottom, viewportBottom) - 16
-      )
-    })
-    const fallbackPage = firstVisibleIndex >= 0 ? firstVisibleIndex + 1 : 1
-
-    setCurrentPdfPage((current) => (current === fallbackPage ? current : fallbackPage))
   }
 
   useEffect(() => {
@@ -291,6 +301,27 @@ const DocumentDetail = () => {
   }, [id])
 
   useEffect(() => {
+    if (!document?.id || !isAuthenticated) {
+      setInteraction(null)
+      return undefined
+    }
+
+    let ignore = false
+
+    documentAPI.getDocumentInteraction(document.id)
+      .then((res) => {
+        if (!ignore) setInteraction(res.data)
+      })
+      .catch(() => {
+        if (!ignore) setInteraction(null)
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [document?.id, isAuthenticated])
+
+  useEffect(() => {
     if (!document?.id) return undefined
 
     if (previewKind === 'unsupported') {
@@ -300,7 +331,6 @@ const DocumentDetail = () => {
       setPdfLoadError('')
       setPdfPageCount(0)
       setCurrentPdfPage(1)
-      if (viewerRef.current) viewerRef.current.scrollTop = 0
       setIsPreviewLoading(false)
       return undefined
     }
@@ -314,7 +344,6 @@ const DocumentDetail = () => {
     setPdfPageCount(0)
     setCurrentPdfPage(1)
     setPdfViewportWidth(0)
-    if (viewerRef.current) viewerRef.current.scrollTop = 0
     pdfPageRefs.current = []
 
     const request = previewKind === 'text'
@@ -354,7 +383,7 @@ const DocumentDetail = () => {
 
     documentAPI.getRelatedDocuments(term, document.id, 6)
       .then((res) => {
-        if (!ignore) setRelatedDocs(res.data || [])
+        if (!ignore) setRelatedDocs((res.data || []).map(buildDocumentSummary))
       })
       .catch(() => {
         if (!ignore) setRelatedDocs([])
@@ -369,18 +398,13 @@ const DocumentDetail = () => {
     if (previewKind !== 'pdf') return undefined
 
     const syncWidth = () => {
-      if (viewerRef.current) {
-        setPdfViewportWidth(viewerRef.current.clientWidth)
-      }
+      if (viewerRef.current) setPdfViewportWidth(viewerRef.current.clientWidth)
     }
 
     syncWidth()
 
     if (typeof ResizeObserver !== 'undefined' && viewerRef.current) {
-      const observer = new ResizeObserver(() => {
-        syncWidth()
-      })
-
+      const observer = new ResizeObserver(() => syncWidth())
       observer.observe(viewerRef.current)
       return () => observer.disconnect()
     }
@@ -391,38 +415,8 @@ const DocumentDetail = () => {
 
   useEffect(() => {
     if (previewKind !== 'pdf' || pdfPageCount === 0) return undefined
-
-    const frame = window.requestAnimationFrame(() => {
-      syncCurrentPdfPage()
-    })
-
+    const frame = window.requestAnimationFrame(() => syncCurrentPdfPage())
     return () => window.cancelAnimationFrame(frame)
-  }, [previewKind, pdfPageCount, pdfPageWidth, pdfScale])
-
-  useEffect(() => {
-    if (previewKind !== 'pdf' || pdfPageCount === 0) return undefined
-
-    let frame = 0
-    const syncOnPageScroll = () => {
-      if (frame) return
-
-      frame = window.requestAnimationFrame(() => {
-        frame = 0
-        syncCurrentPdfPage()
-      })
-    }
-
-    window.addEventListener('scroll', syncOnPageScroll, { passive: true })
-    window.addEventListener('resize', syncOnPageScroll)
-
-    return () => {
-      window.removeEventListener('scroll', syncOnPageScroll)
-      window.removeEventListener('resize', syncOnPageScroll)
-
-      if (frame) {
-        window.cancelAnimationFrame(frame)
-      }
-    }
   }, [previewKind, pdfPageCount, pdfPageWidth, pdfScale])
 
   const requireLogin = (message) => {
@@ -431,6 +425,13 @@ const DocumentDetail = () => {
       message,
       showLogin: true,
     })
+  }
+
+  const refreshInteraction = async () => {
+    if (!document?.id || !isAuthenticated) return null
+    const response = await documentAPI.getDocumentInteraction(document.id)
+    setInteraction(response.data)
+    return response.data
   }
 
   const handleDownload = async () => {
@@ -447,23 +448,33 @@ const DocumentDetail = () => {
     } catch (err) {
       setFeedback({
         tone: 'error',
-        message:
-          err.response?.data?.detail ||
-          err.message ||
-          'Không thể tải tài liệu.',
+        message: err.response?.data?.detail || err.message || 'Không thể tải tài liệu.',
         showLogin: false,
       })
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isAuthenticated) {
       requireLogin('Đăng nhập để lưu tài liệu vào thư viện cá nhân.')
       return
     }
 
-    setSaved((current) => !current)
-    setFeedback(emptyFeedback)
+    try {
+      if (saved) {
+        await documentAPI.deleteBookmark(document.id)
+      } else {
+        await documentAPI.createBookmark(document.id)
+      }
+      await refreshInteraction()
+      setFeedback(emptyFeedback)
+    } catch (err) {
+      setFeedback({
+        tone: 'error',
+        message: err.response?.data?.detail || 'Không thể cập nhật bookmark.',
+        showLogin: false,
+      })
+    }
   }
 
   const handleShare = async () => {
@@ -483,19 +494,29 @@ const DocumentDetail = () => {
     }
   }
 
-  const handleRate = (mode) => {
+  const handleRate = async (mode) => {
     if (!isAuthenticated) {
-      requireLogin('Đăng nhập để đánh giá tài liệu.')
+      requireLogin('Đăng nhập để phản hồi tài liệu.')
       return
     }
 
-    setFeedback({
-      tone: 'info',
-      message: mode === 'up'
-        ? 'Luồng đánh giá hữu ích sẽ được hoàn thiện ở bước tiếp theo.'
-        : 'Luồng phản hồi chưa hữu ích sẽ được hoàn thiện ở bước tiếp theo.',
-      showLogin: false,
-    })
+    const vote = mode === 'up' ? 'like' : 'dislike'
+
+    try {
+      if (currentVote === vote) {
+        await documentAPI.clearDocumentVote(document.id)
+      } else {
+        await documentAPI.voteDocument(document.id, vote)
+      }
+      await refreshInteraction()
+      setFeedback(emptyFeedback)
+    } catch (err) {
+      setFeedback({
+        tone: 'error',
+        message: err.response?.data?.detail || 'Không thể cập nhật phản hồi.',
+        showLogin: false,
+      })
+    }
   }
 
   const handleReport = () => {
@@ -503,12 +524,88 @@ const DocumentDetail = () => {
       requireLogin('Đăng nhập để báo cáo tài liệu.')
       return
     }
+    setIsReportModalOpen(true)
+  }
 
-    setFeedback({
-      tone: 'info',
-      message: 'Chức năng báo cáo sẽ được hoàn thiện ở bước tiếp theo.',
-      showLogin: false,
-    })
+  const submitReport = async () => {
+    try {
+      await documentAPI.reportDocument(document.id, reportReason)
+      await refreshInteraction()
+      setIsReportModalOpen(false)
+      setFeedback({
+        tone: 'info',
+        message: 'Đã gửi báo cáo tài liệu.',
+        showLogin: false,
+      })
+    } catch (err) {
+      setFeedback({
+        tone: 'error',
+        message: err.response?.data?.detail || 'Không thể gửi báo cáo.',
+        showLogin: false,
+      })
+    }
+  }
+
+  const loadCourseMemberships = async () => {
+    if (!document?.id || !isAuthenticated) return
+    setIsCourseLoading(true)
+    try {
+      const response = await documentAPI.getDocumentCourseMemberships(document.id)
+      setCourseMemberships(response.data || [])
+    } catch {
+      setCourseMemberships([])
+    } finally {
+      setIsCourseLoading(false)
+    }
+  }
+
+  const openCourseModal = async () => {
+    if (!isAuthenticated) {
+      requireLogin('Đăng nhập để thêm tài liệu vào thư mục.')
+      return
+    }
+    setIsCourseModalOpen(true)
+    await loadCourseMemberships()
+  }
+
+  const toggleCourseMembership = async (course) => {
+    try {
+      if (course.contains_document) {
+        await documentAPI.removeDocumentFromCourse(course.id, document.id)
+      } else {
+        await documentAPI.addDocumentToCourse(course.id, document.id)
+      }
+      await loadCourseMemberships()
+    } catch (err) {
+      setFeedback({
+        tone: 'error',
+        message: err.response?.data?.detail || 'Không thể cập nhật thư mục.',
+        showLogin: false,
+      })
+    }
+  }
+
+  const createCourseAndAddDocument = async () => {
+    if (!courseName.trim()) return
+    setIsCourseSubmitting(true)
+    try {
+      const created = await documentAPI.createCourse({
+        name: courseName.trim(),
+        description: courseDescription.trim() || null,
+      })
+      await documentAPI.addDocumentToCourse(created.data.id, document.id)
+      setCourseName('')
+      setCourseDescription('')
+      await loadCourseMemberships()
+    } catch (err) {
+      setFeedback({
+        tone: 'error',
+        message: err.response?.data?.detail || 'Không thể tạo thư mục.',
+        showLogin: false,
+      })
+    } finally {
+      setIsCourseSubmitting(false)
+    }
   }
 
   const handleExpandPreview = async () => {
@@ -530,16 +627,12 @@ const DocumentDetail = () => {
     setPdfPageCount(numPages)
     setCurrentPdfPage(1)
     setPdfLoadError('')
-    if (viewerRef.current) viewerRef.current.scrollTop = 0
   }
 
   const handlePdfLoadError = (pdfError) => {
     setPdfPageCount(0)
     setCurrentPdfPage(1)
-    setPdfLoadError(
-      pdfError?.message ||
-      'Không thể hiển thị tệp PDF lúc này.',
-    )
+    setPdfLoadError(pdfError?.message || 'Không thể hiển thị tệp PDF lúc này.')
   }
 
   const renderPreviewFallback = () => {
@@ -608,13 +701,15 @@ const DocumentDetail = () => {
         <div className="dd-shell">
           <aside className="dd-left">
             <div className="dd-stats-row">
-              {likePercent !== null ? (
-                <span className="dd-stat-like">
-                  <IconThumbUp />
-                  {likePercent}% ({document.ratingCount})
-                </span>
-              ) : null}
-              <span className="dd-stat-item">{fmt(document.downloadCount)} lượt xem</span>
+              <span className="dd-stat-like">
+                <IconThumbUp />
+                {fmt(liveLikeCount)} lượt thích
+              </span>
+              <span className="dd-stat-item">
+                <IconThumbDown />
+                {fmt(liveDislikeCount)} lượt không thích
+              </span>
+              <span className="dd-stat-item">{fmt(document.downloadCount)} lượt tải</span>
               {visiblePageCount ? <span className="dd-stat-item">{visiblePageCount} trang</span> : null}
             </div>
 
@@ -659,18 +754,29 @@ const DocumentDetail = () => {
               <DetailAction
                 icon={<IconBookmark />}
                 label={saved ? 'Đã lưu' : 'Lưu'}
+                meta={interaction?.is_bookmarked ? 'Trong bookmark' : 'Lưu lại để xem sau'}
                 className={saved ? 'dd-action-btn--active' : ''}
                 onClick={handleSave}
               />
               <DetailAction
                 icon={<IconThumbUp />}
                 label={likePercent !== null ? `${likePercent}%` : 'Hữu ích'}
+                meta={`${fmt(liveLikeCount)} lượt thích`}
+                className={currentVote === 'like' ? 'dd-action-btn--active' : ''}
                 onClick={() => handleRate('up')}
               />
               <DetailAction
                 icon={<IconThumbDown />}
                 label={dislikePercent !== null ? `${dislikePercent}%` : 'Chưa ổn'}
+                meta={`${fmt(liveDislikeCount)} lượt`}
+                className={currentVote === 'dislike' ? 'dd-action-btn--active' : ''}
                 onClick={() => handleRate('down')}
+              />
+              <DetailAction
+                icon={<IconFolder />}
+                label="Thư mục"
+                meta="Thêm vào course"
+                onClick={openCourseModal}
               />
               <DetailAction
                 icon={<IconFlag />}
@@ -802,14 +908,7 @@ const DocumentDetail = () => {
                       className="dd-pdf-document"
                       error=""
                       file={previewUrl}
-                      loading={
-                        <div className="dd-viewer-state dd-viewer-state--inline">
-                          <div>
-                            <div className="dd-viewer-spinner" />
-                            <p>Đang dựng tài liệu PDF...</p>
-                          </div>
-                        </div>
-                      }
+                      loading={null}
                       onLoadError={handlePdfLoadError}
                       onLoadSuccess={handlePdfLoadSuccess}
                     >
@@ -844,20 +943,6 @@ const DocumentDetail = () => {
                 ) ? renderPreviewFallback() : null}
               </div>
             </div>
-
-            <div className="dd-rating-bar" hidden>
-              <p>Tài liệu này có hữu ích không?</p>
-              <div className="dd-rating-bar__btns">
-                <button className="dd-rate-btn dd-rate-btn--up" type="button" onClick={() => handleRate('up')}>
-                  <IconThumbUp />
-                  {document.ratingCount > 0 ? `${likePercent}%` : 'Hữu ích'}
-                </button>
-                <button className="dd-rate-btn dd-rate-btn--down" type="button" onClick={() => handleRate('down')}>
-                  <IconThumbDown />
-                  {document.ratingCount > 0 ? `${dislikePercent}%` : 'Không hữu ích'}
-                </button>
-              </div>
-            </div>
           </main>
 
           <aside className="dd-right">
@@ -883,6 +968,95 @@ const DocumentDetail = () => {
               ))}
             </div>
           </aside>
+        </div>
+      ) : null}
+
+      {isCourseModalOpen ? (
+        <div className="dd-modal-backdrop" onClick={() => setIsCourseModalOpen(false)}>
+          <div className="dd-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="dd-modal__head">
+              <div>
+                <h3>Thêm vào thư mục</h3>
+                <p>Chọn thư mục của bạn hoặc tạo thư mục mới cho tài liệu này.</p>
+              </div>
+              <button type="button" className="dd-modal__close" onClick={() => setIsCourseModalOpen(false)}>×</button>
+            </div>
+
+            <div className="dd-modal__body">
+              <div className="dd-course-create">
+                <input
+                  type="text"
+                  placeholder="Tên thư mục"
+                  value={courseName}
+                  onChange={(event) => setCourseName(event.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Mô tả ngắn"
+                  value={courseDescription}
+                  onChange={(event) => setCourseDescription(event.target.value)}
+                />
+                <button type="button" className="dd-modal__primary" onClick={createCourseAndAddDocument} disabled={isCourseSubmitting}>
+                  {isCourseSubmitting ? 'Đang tạo...' : 'Tạo và thêm'}
+                </button>
+              </div>
+
+              {isCourseLoading ? <div className="dd-modal__empty">Đang tải thư mục...</div> : null}
+              {!isCourseLoading && courseMemberships.length === 0 ? (
+                <div className="dd-modal__empty">Bạn chưa có thư mục nào.</div>
+              ) : null}
+              {!isCourseLoading && courseMemberships.length > 0 ? (
+                <div className="dd-course-list">
+                  {courseMemberships.map((course) => (
+                    <button
+                      key={course.id}
+                      type="button"
+                      className={`dd-course-item${course.contains_document ? ' is-active' : ''}`}
+                      onClick={() => toggleCourseMembership(course)}
+                    >
+                      <div>
+                        <strong>{course.name}</strong>
+                        <span>{course.document_count} tài liệu</span>
+                      </div>
+                      <span>{course.contains_document ? 'Đã thêm' : 'Thêm'}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isReportModalOpen ? (
+        <div className="dd-modal-backdrop" onClick={() => setIsReportModalOpen(false)}>
+          <div className="dd-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="dd-modal__head">
+              <div>
+                <h3>Báo cáo tài liệu</h3>
+                <p>Chọn lý do phù hợp để gửi báo cáo.</p>
+              </div>
+              <button type="button" className="dd-modal__close" onClick={() => setIsReportModalOpen(false)}>×</button>
+            </div>
+            <div className="dd-modal__body">
+              <div className="dd-report-options">
+                {REPORT_REASONS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={`dd-report-option${reportReason === item.value ? ' is-active' : ''}`}
+                    onClick={() => setReportReason(item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="dd-modal__actions">
+              <button type="button" className="dd-modal__ghost" onClick={() => setIsReportModalOpen(false)}>Hủy</button>
+              <button type="button" className="dd-modal__primary" onClick={submitReport}>Gửi báo cáo</button>
+            </div>
+          </div>
         </div>
       ) : null}
 

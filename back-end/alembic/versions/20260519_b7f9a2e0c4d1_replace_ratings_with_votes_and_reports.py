@@ -29,14 +29,6 @@ report_reason_enum = postgresql.ENUM(
     name="document_report_reason_enum",
     create_type=False,
 )
-report_status_enum = postgresql.ENUM(
-    "pending",
-    "reviewed",
-    "resolved",
-    "dismissed",
-    name="document_report_status_enum",
-    create_type=False,
-)
 
 
 def upgrade() -> None:
@@ -65,10 +57,9 @@ def upgrade() -> None:
         """
         DO $$
         BEGIN
-            CREATE TYPE document_report_status_enum AS ENUM
-                ('pending', 'reviewed', 'resolved', 'dismissed');
+            DROP TYPE IF EXISTS document_report_status_enum;
         EXCEPTION
-            WHEN duplicate_object THEN NULL;
+            WHEN dependent_objects_still_exist THEN NULL;
         END $$;
         """
     )
@@ -76,6 +67,7 @@ def upgrade() -> None:
     op.add_column("documents", sa.Column("like_count", sa.Integer(), server_default=sa.text("0"), nullable=False))
     op.add_column("documents", sa.Column("dislike_count", sa.Integer(), server_default=sa.text("0"), nullable=False))
     op.add_column("documents", sa.Column("report_count", sa.Integer(), server_default=sa.text("0"), nullable=False))
+    op.add_column("documents", sa.Column("reject_reason", sa.Text(), nullable=True))
 
     op.create_check_constraint("chk_like_count_positive", "documents", "like_count >= 0")
     op.create_check_constraint("chk_dislike_count_positive", "documents", "dislike_count >= 0")
@@ -118,26 +110,18 @@ def upgrade() -> None:
         sa.Column("document_id", sa.UUID(), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column("reason", report_reason_enum, nullable=False),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("status", report_status_enum, server_default=sa.text("'pending'"), nullable=False),
-        sa.Column("admin_note", sa.Text(), nullable=True),
-        sa.Column("reviewed_by", sa.UUID(), nullable=True),
-        sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.ForeignKeyConstraint(["document_id"], ["documents.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["reviewed_by"], ["users.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("document_id", "user_id", name="uq_document_reports_document_user"),
     )
     op.create_index("ix_document_reports_document_id", "document_reports", ["document_id"], unique=False)
     op.create_index("ix_document_reports_user_id", "document_reports", ["user_id"], unique=False)
-    op.create_index("ix_document_reports_status", "document_reports", ["status"], unique=False)
 
 
 def downgrade() -> None:
-    op.drop_index("ix_document_reports_status", table_name="document_reports")
     op.drop_index("ix_document_reports_user_id", table_name="document_reports")
     op.drop_index("ix_document_reports_document_id", table_name="document_reports")
     op.drop_table("document_reports")
@@ -161,6 +145,7 @@ def downgrade() -> None:
     op.drop_constraint("chk_report_count_positive", "documents", type_="check")
     op.drop_constraint("chk_dislike_count_positive", "documents", type_="check")
     op.drop_constraint("chk_like_count_positive", "documents", type_="check")
+    op.drop_column("documents", "reject_reason")
     op.drop_column("documents", "report_count")
     op.drop_column("documents", "dislike_count")
     op.drop_column("documents", "like_count")

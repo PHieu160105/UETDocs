@@ -43,9 +43,10 @@ const isTextPreviewable = (mimeType, originalName = '') => {
 }
 
 export const buildDocumentSummary = (doc) => {
-  const ratingAverage = Number(doc?.rating_average ?? 0)
-  const ratingCount = Number(doc?.rating_count ?? 0)
   const downloadCount = Number(doc?.download_count ?? 0)
+  const likeCount = Number(doc?.like_count ?? 0)
+  const dislikeCount = Number(doc?.dislike_count ?? 0)
+  const reportCount = Number(doc?.report_count ?? 0)
   const departmentLabel = normalizeDepartmentValue(doc?.department || '') || 'Tài liệu chung'
   const subjectLabel = doc?.subject || 'Chưa phân loại'
   const sizeLabel = fmtSize(doc?.file_size)
@@ -69,16 +70,18 @@ export const buildDocumentSummary = (doc) => {
     sizeLabel,
     statusLabel,
     downloadsLabel: `${fmt(downloadCount)} lượt tải`,
-    ratingLabel: ratingCount > 0 ? `${ratingAverage.toFixed(1)}/5` : 'Chưa có đánh giá',
+    likesLabel: `${fmt(likeCount)} lượt thích`,
     updatedLabel: fmtDate(doc?.updated_at || doc?.created_at),
     createdLabel: fmtDate(doc?.created_at),
     approvedLabel: fmtDate(doc?.approved_at),
     yearLabel: doc?.year ? String(doc.year) : '',
     teacherLabel: doc?.teacher?.trim() || '',
     fileTypeLabel: getFileTypeLabel(doc?.mime_type, doc?.original_name),
-    ratingAverage,
-    ratingCount,
     downloadCount,
+    likeCount,
+    dislikeCount,
+    reportCount,
+    totalVotes: likeCount + dislikeCount,
     isPreviewable:
       hasPdfPreview(doc?.mime_type, doc?.original_name) ||
       hasImagePreview(doc?.mime_type, doc?.original_name) ||

@@ -1212,3 +1212,155 @@
   width: min(1440px, calc(100% - 48px));
   padding: 16px 0 24px;
 }
+
+.dd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 18, 34, 0.44);
+}
+
+.dd-modal {
+  width: min(100%, 560px);
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid var(--dd-border);
+  box-shadow: 0 24px 60px rgba(15, 33, 61, 0.18);
+}
+
+.dd-modal__head,
+.dd-modal__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px;
+}
+
+.dd-modal__head {
+  border-bottom: 1px solid #e6eef9;
+}
+
+.dd-modal__head h3 {
+  margin: 0;
+  color: var(--dd-text);
+  font-size: 20px;
+}
+
+.dd-modal__head p {
+  margin: 6px 0 0;
+  color: var(--dd-text-muted);
+  font-size: 14px;
+}
+
+.dd-modal__close {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 12px;
+  background: #f3f6fc;
+  color: var(--dd-text-muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.dd-modal__body {
+  padding: 20px 22px;
+}
+
+.dd-course-create {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dd-course-create input {
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid #d7e2f1;
+  background: #fff;
+  color: var(--dd-text);
+  font: inherit;
+}
+
+.dd-course-list,
+.dd-report-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dd-course-item,
+.dd-report-option {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #dbe5f4;
+  background: #fff;
+  color: var(--dd-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dd-course-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dd-course-item strong {
+  display: block;
+  font-size: 14px;
+}
+
+.dd-course-item span,
+.dd-report-option {
+  font-size: 13px;
+}
+
+.dd-course-item.is-active,
+.dd-report-option.is-active {
+  background: #eef5ff;
+  border-color: #bdd3fb;
+  color: #205ee8;
+}
+
+.dd-modal__empty {
+  padding: 16px;
+  border-radius: 16px;
+  background: #f6f9ff;
+  color: var(--dd-text-muted);
+  font-size: 14px;
+}
+
+.dd-modal__actions {
+  border-top: 1px solid #e6eef9;
+  justify-content: flex-end;
+}
+
+.dd-modal__ghost,
+.dd-modal__primary {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dd-modal__ghost {
+  background: #eef3fb;
+  color: var(--dd-text-muted);
+}
+
+.dd-modal__primary {
+  background: #1f61ff;
+  color: #fff;
+}
