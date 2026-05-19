@@ -148,14 +148,100 @@ const getUnsupportedPreviewMessage = (doc) => {
   return 'Tài liệu này chưa hỗ trợ xem trực tiếp trên website ở phiên bản hiện tại.'
 }
 
-const DetailAction = ({ icon, label, meta, className = '', onClick }) => (
-  <button className={`dd-action-btn ${className}`.trim()} type="button" onClick={onClick}>
+const TEXT_PAGE_HORIZONTAL_PADDING = 48
+const TEXT_PAGE_VERTICAL_PADDING = 40
+
+const wrapTextLine = (input, maxChars) => {
+  if (!input) return ['']
+
+  const chunks = []
+  const words = input.split(/(\s+)/).filter(Boolean)
+  let currentLine = ''
+
+  words.forEach((word) => {
+    if (/^\s+$/.test(word)) {
+      if (currentLine && currentLine.length + word.length <= maxChars) {
+        currentLine += word
+      }
+      return
+    }
+
+    if (!currentLine) {
+      currentLine = word
+      return
+    }
+
+    if ((currentLine + word).length <= maxChars) {
+      currentLine += word
+      return
+    }
+
+    chunks.push(currentLine.trimEnd())
+    currentLine = word
+  })
+
+  if (currentLine) {
+    chunks.push(currentLine.trimEnd())
+  }
+
+  const wrapped = []
+
+  chunks.forEach((line) => {
+    if (line.length <= maxChars) {
+      wrapped.push(line)
+      return
+    }
+
+    for (let start = 0; start < line.length; start += maxChars) {
+      wrapped.push(line.slice(start, start + maxChars))
+    }
+  })
+
+  return wrapped.length ? wrapped : ['']
+}
+
+const paginateTextPreview = (content, viewportWidth, zoom, pageHeight) => {
+  if (typeof content !== 'string') return ['']
+
+  const fontSize = Math.max(12, zoom * 0.16)
+  const lineHeight = fontSize * 1.85
+  const usableWidth = Math.max(180, viewportWidth - (TEXT_PAGE_HORIZONTAL_PADDING * 2))
+  const usableHeight = Math.max(280, pageHeight - (TEXT_PAGE_VERTICAL_PADDING * 2))
+  const charsPerLine = Math.max(24, Math.floor(usableWidth / Math.max(fontSize * 0.62, 7.4)))
+  const linesPerPage = Math.max(10, Math.floor(usableHeight / lineHeight))
+  const logicalLines = content
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .flatMap((line) => wrapTextLine(line, charsPerLine))
+
+  if (!logicalLines.length) return ['']
+
+  const pages = []
+  for (let start = 0; start < logicalLines.length; start += linesPerPage) {
+    pages.push(logicalLines.slice(start, start + linesPerPage).join('\n'))
+  }
+
+  return pages.length ? pages : ['']
+}
+
+const DetailAction = ({ icon, ariaLabel, className = '', onClick }) => (
+  <button
+    className={`dd-action-btn ${className}`.trim()}
+    type="button"
+    onClick={onClick}
+    aria-label={ariaLabel}
+    title={ariaLabel}
+  >
     <span className="dd-action-btn__icon">{icon}</span>
-    <span className="dd-action-btn__body">
-      <strong>{label}</strong>
-      {meta ? <span>{meta}</span> : null}
-    </span>
   </button>
+)
+
+const DetailStat = ({ icon, value, label, className = '' }) => (
+  <div className={`dd-stat-card ${className}`.trim()}>
+    <span className="dd-stat-card__icon">{icon}</span>
+    <strong>{value}</strong>
+    <span>{label}</span>
+  </div>
 )
 
 const DetailInfoRow = ({ label, value }) => (
@@ -198,11 +284,12 @@ const DocumentDetail = () => {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
   const viewerRef = useRef(null)
-  const pdfPageRefs = useRef([])
+  const pageItemRefs = useRef([])
 
   const [document, setDocument] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [textPreview, setTextPreview] = useState(null)
+  const [textPages, setTextPages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState('')
@@ -214,7 +301,8 @@ const DocumentDetail = () => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
   const [pdfPageCount, setPdfPageCount] = useState(0)
   const [currentPdfPage, setCurrentPdfPage] = useState(1)
-  const [pdfViewportWidth, setPdfViewportWidth] = useState(0)
+  const [currentTextPage, setCurrentTextPage] = useState(1)
+  const [previewViewportWidth, setPreviewViewportWidth] = useState(0)
   const [pdfLoadError, setPdfLoadError] = useState('')
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
@@ -229,27 +317,27 @@ const DocumentDetail = () => {
   const previewLabel = getPreviewLabel(previewKind, document)
   const liveLikeCount = Number(interaction?.like_count ?? document?.likeCount ?? 0)
   const liveDislikeCount = Number(interaction?.dislike_count ?? document?.dislikeCount ?? 0)
-  const liveTotalVotes = liveLikeCount + liveDislikeCount
-  const likePercent = liveTotalVotes > 0 ? Math.round((liveLikeCount / liveTotalVotes) * 100) : null
-  const dislikePercent = liveTotalVotes > 0 ? Math.round((liveDislikeCount / liveTotalVotes) * 100) : null
-  const estimatedPages = document?.file_size ? Math.max(1, Math.ceil(document.file_size / 50000)) : null
-  const visiblePageCount = previewKind === 'pdf' && pdfPageCount > 0 ? pdfPageCount : estimatedPages
+  const textPageCount = textPages.length
   const downloadButtonLabel = isAuthenticated ? 'Tải xuống' : 'Đăng nhập để tải'
   const shouldShowDescriptionToggle = (document?.description?.length || 0) > 180
   const pdfScale = Math.max(0.6, zoom / 100)
-  const pdfPageWidth = pdfViewportWidth > 0 ? Math.max(280, pdfViewportWidth - 8) : 820
+  const previewPageWidth = previewViewportWidth > 0 ? Math.max(280, previewViewportWidth - 8) : 820
+  const textPageHeight = Math.max(420, Math.round(previewPageWidth * 1.22))
+  const pagedPreviewTotal = previewKind === 'pdf' ? pdfPageCount : textPageCount
+  const currentPreviewPage = previewKind === 'pdf' ? currentPdfPage : currentTextPage
   const saved = Boolean(interaction?.is_bookmarked)
   const currentVote = interaction?.current_vote || null
 
-  const syncCurrentPdfPage = () => {
-    if (previewKind !== 'pdf' || !viewerRef.current || pdfPageRefs.current.length === 0) return
+  const syncCurrentPreviewPage = (kind = previewKind) => {
+    if ((kind !== 'pdf' && kind !== 'text') || !viewerRef.current) return
 
-    const pageNodes = pdfPageRefs.current.filter(Boolean)
+    const totalPages = kind === 'pdf' ? pdfPageCount : textPageCount
+    const pageNodes = pageItemRefs.current.slice(0, totalPages).filter(Boolean)
     if (pageNodes.length === 0) return
 
     const readerBandTop = window.innerHeight * 0.22
     const readerBandBottom = window.innerHeight * 0.62
-    let nextPage = null
+    let nextPage = 1
     let maxOverlap = 0
 
     pageNodes.forEach((pageNode, index) => {
@@ -265,9 +353,12 @@ const DocumentDetail = () => {
       }
     })
 
-    if (nextPage !== null) {
+    if (kind === 'pdf') {
       setCurrentPdfPage((current) => (current === nextPage ? current : nextPage))
+      return
     }
+
+    setCurrentTextPage((current) => (current === nextPage ? current : nextPage))
   }
 
   useEffect(() => {
@@ -327,10 +418,12 @@ const DocumentDetail = () => {
     if (previewKind === 'unsupported') {
       setPreviewUrl('')
       setTextPreview(null)
+      setTextPages([])
       setPreviewError('')
       setPdfLoadError('')
       setPdfPageCount(0)
       setCurrentPdfPage(1)
+      setCurrentTextPage(1)
       setIsPreviewLoading(false)
       return undefined
     }
@@ -339,12 +432,14 @@ const DocumentDetail = () => {
     setIsPreviewLoading(true)
     setPreviewUrl('')
     setTextPreview(null)
+    setTextPages([])
     setPreviewError('')
     setPdfLoadError('')
     setPdfPageCount(0)
     setCurrentPdfPage(1)
-    setPdfViewportWidth(0)
-    pdfPageRefs.current = []
+    setCurrentTextPage(1)
+    setPreviewViewportWidth(0)
+    pageItemRefs.current = []
 
     const request = previewKind === 'text'
       ? getDocumentTextPreview(document.id).then((content) => {
@@ -395,10 +490,10 @@ const DocumentDetail = () => {
   }, [document])
 
   useEffect(() => {
-    if (previewKind !== 'pdf') return undefined
+    if (previewKind !== 'pdf' && previewKind !== 'text') return undefined
 
     const syncWidth = () => {
-      if (viewerRef.current) setPdfViewportWidth(viewerRef.current.clientWidth)
+      if (viewerRef.current) setPreviewViewportWidth(viewerRef.current.clientWidth)
     }
 
     syncWidth()
@@ -414,10 +509,44 @@ const DocumentDetail = () => {
   }, [previewKind])
 
   useEffect(() => {
-    if (previewKind !== 'pdf' || pdfPageCount === 0) return undefined
-    const frame = window.requestAnimationFrame(() => syncCurrentPdfPage())
-    return () => window.cancelAnimationFrame(frame)
-  }, [previewKind, pdfPageCount, pdfPageWidth, pdfScale])
+    if (previewKind !== 'text' || textPreview === null || previewViewportWidth === 0) return undefined
+
+    const nextPages = paginateTextPreview(textPreview, previewPageWidth, zoom, textPageHeight)
+    setTextPages(nextPages)
+    setCurrentTextPage((current) => Math.min(Math.max(current, 1), nextPages.length || 1))
+    return undefined
+  }, [previewKind, textPreview, previewPageWidth, textPageHeight, previewViewportWidth, zoom])
+
+  useEffect(() => {
+    if ((previewKind !== 'pdf' && previewKind !== 'text') || pagedPreviewTotal === 0) return undefined
+
+    let frameId = 0
+    const scheduleSync = () => {
+      if (frameId) window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(() => {
+        syncCurrentPreviewPage(previewKind)
+      })
+    }
+
+    const nodes = pageItemRefs.current.slice(0, pagedPreviewTotal).filter(Boolean)
+    const observer = typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver(scheduleSync, {
+        threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
+      })
+      : null
+
+    nodes.forEach((node) => observer?.observe(node))
+    window.addEventListener('scroll', scheduleSync, { passive: true })
+    window.addEventListener('resize', scheduleSync)
+    scheduleSync()
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId)
+      observer?.disconnect()
+      window.removeEventListener('scroll', scheduleSync)
+      window.removeEventListener('resize', scheduleSync)
+    }
+  }, [previewKind, pagedPreviewTotal, previewPageWidth, pdfScale, zoom, textPageCount])
 
   const requireLogin = (message) => {
     setFeedback({
@@ -701,16 +830,22 @@ const DocumentDetail = () => {
         <div className="dd-shell">
           <aside className="dd-left">
             <div className="dd-stats-row">
-              <span className="dd-stat-like">
-                <IconThumbUp />
-                {fmt(liveLikeCount)} lượt thích
-              </span>
-              <span className="dd-stat-item">
-                <IconThumbDown />
-                {fmt(liveDislikeCount)} lượt không thích
-              </span>
-              <span className="dd-stat-item">{fmt(document.downloadCount)} lượt tải</span>
-              {visiblePageCount ? <span className="dd-stat-item">{visiblePageCount} trang</span> : null}
+              <DetailStat
+                icon={<IconThumbUp />}
+                value={fmt(liveLikeCount)}
+                label="Lượt thích"
+                className="dd-stat-card--positive"
+              />
+              <DetailStat
+                icon={<IconThumbDown />}
+                value={fmt(liveDislikeCount)}
+                label="Không thích"
+              />
+              <DetailStat
+                icon={<IconDownload />}
+                value={fmt(document.downloadCount)}
+                label="Tải xuống"
+              />
             </div>
 
             <h1 className="dd-title">{document.title}</h1>
@@ -753,34 +888,30 @@ const DocumentDetail = () => {
             <div className="dd-action-grid">
               <DetailAction
                 icon={<IconBookmark />}
-                label={saved ? 'Đã lưu' : 'Lưu'}
-                meta={interaction?.is_bookmarked ? 'Trong bookmark' : 'Lưu lại để xem sau'}
+                ariaLabel={saved ? 'Đã lưu tài liệu' : 'Lưu tài liệu'}
                 className={saved ? 'dd-action-btn--active' : ''}
                 onClick={handleSave}
               />
               <DetailAction
                 icon={<IconThumbUp />}
-                label={likePercent !== null ? `${likePercent}%` : 'Hữu ích'}
-                meta={`${fmt(liveLikeCount)} lượt thích`}
+                ariaLabel={`Thích tài liệu (${fmt(liveLikeCount)} lượt thích)`}
                 className={currentVote === 'like' ? 'dd-action-btn--active' : ''}
                 onClick={() => handleRate('up')}
               />
               <DetailAction
                 icon={<IconThumbDown />}
-                label={dislikePercent !== null ? `${dislikePercent}%` : 'Chưa ổn'}
-                meta={`${fmt(liveDislikeCount)} lượt`}
+                ariaLabel={`Không thích tài liệu (${fmt(liveDislikeCount)} lượt không thích)`}
                 className={currentVote === 'dislike' ? 'dd-action-btn--active' : ''}
                 onClick={() => handleRate('down')}
               />
               <DetailAction
                 icon={<IconFolder />}
-                label="Thư mục"
-                meta="Thêm vào course"
+                ariaLabel="Thêm tài liệu vào thư mục"
                 onClick={openCourseModal}
               />
               <DetailAction
                 icon={<IconFlag />}
-                label="Báo cáo"
+                ariaLabel="Báo cáo tài liệu"
                 className="dd-action-btn--danger"
                 onClick={handleReport}
               />
@@ -838,9 +969,9 @@ const DocumentDetail = () => {
                 <div className="dd-rail-divider" aria-hidden="true" />
 
                 <div className="dd-rail-group dd-rail-group--status">
-                  {previewKind === 'pdf' && pdfPageCount > 0 ? (
+                  {pagedPreviewTotal > 0 ? (
                     <div className="dd-rail-indicator dd-rail-indicator--page">
-                      <span className="dd-rail-indicator__value">{currentPdfPage}/{pdfPageCount}</span>
+                      <span className="dd-rail-indicator__value">{currentPreviewPage}/{pagedPreviewTotal}</span>
                       <span className="dd-rail-indicator__label">Trang</span>
                     </div>
                   ) : (
@@ -881,13 +1012,25 @@ const DocumentDetail = () => {
                 ) : null}
 
                 {!isPreviewLoading && previewKind === 'text' && textPreview !== null ? (
-                  <div className="dd-text-preview">
-                    <pre
-                      className="dd-preview-text__content"
-                      style={{ fontSize: `${Math.max(12, zoom * 0.16)}px` }}
-                    >
-                      {textPreview}
-                    </pre>
+                  <div className="dd-text-stage">
+                    {textPages.map((pageContent, index) => (
+                      <div
+                        key={`text-page-${index + 1}`}
+                        ref={(node) => {
+                          pageItemRefs.current[index] = node
+                        }}
+                        className="dd-text-page"
+                      >
+                        <div className="dd-paper dd-paper--text" style={{ minHeight: `${textPageHeight}px` }}>
+                          <pre
+                            className="dd-preview-text__content"
+                            style={{ fontSize: `${Math.max(12, zoom * 0.16)}px` }}
+                          >
+                            {pageContent}
+                          </pre>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : null}
 
@@ -916,7 +1059,7 @@ const DocumentDetail = () => {
                         <div
                           key={`pdf-page-${index + 1}`}
                           ref={(node) => {
-                            pdfPageRefs.current[index] = node
+                            pageItemRefs.current[index] = node
                           }}
                           className="dd-pdf-page"
                         >
@@ -927,7 +1070,7 @@ const DocumentDetail = () => {
                             renderAnnotationLayer={false}
                             renderTextLayer={false}
                             scale={pdfScale}
-                            width={pdfPageWidth}
+                            width={previewPageWidth}
                           />
                         </div>
                       ))}
