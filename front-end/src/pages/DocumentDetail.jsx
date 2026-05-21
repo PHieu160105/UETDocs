@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import pdfWorkerSrc from '../../node_modules/react-pdf/node_modules/pdfjs-dist/build/pdf.worker.min.mjs?url'
+import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import Topbar from '../components/Topbar'
 import Footer from '../components/Footer'
 import { useAuth } from '../context/AuthContext'
