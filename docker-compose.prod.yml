@@ -3,7 +3,7 @@ services:
     image: ghcr.io/${GITHUB_REPOSITORY_LOWER}/backend:latest
     build: !reset null
     ports: !reset []
-    env_file:
+    env_file: !reset
       - /opt/uetdocs/.env.backend
     restart: always
     networks:
