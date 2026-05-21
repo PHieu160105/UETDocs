@@ -96,7 +96,13 @@ const AdminDashboard = () => {
         {/* ── Sidebar ── */}
         <aside className="admin-sidebar">
           <div className="admin-sidebar__brand">
-            <div className="admin-sidebar__logo">A</div>
+            <div className="admin-sidebar__logo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 6.5C10.5 5 8.5 4 6 4C4.5 4 3.2 4.4 2.5 5V18.5C3.2 17.9 4.5 17.5 6 17.5C8.5 17.5 10.5 18.5 12 20"/>
+                <path d="M12 6.5C13.5 5 15.5 4 18 4C19.5 4 20.8 4.4 21.5 5V18.5C20.8 17.9 19.5 17.5 18 17.5C15.5 17.5 13.5 18.5 12 20"/>
+                <path d="M12 6.5V20"/>
+              </svg>
+            </div>
             <div>
               <div className="admin-sidebar__title">UETDocs</div>
               <span className="admin-sidebar__subtitle">Admin Panel</span>

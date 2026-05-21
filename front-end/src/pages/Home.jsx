@@ -163,8 +163,8 @@ const Home = () => {
 
         <DepartmentSection
           activeDepartment={currentDepartment}
-          onSelectDepartment={(department) => updateFilters({ department }, true)}
-          onViewAll={() => updateFilters({ department: '' }, true)}
+          onSelectDepartment={(department) => navigate(`/documents?department=${encodeURIComponent(department)}`)}
+          onViewAll={() => navigate('/documents')}
         />
 
         <FeaturedGrid

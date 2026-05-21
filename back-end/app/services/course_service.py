@@ -106,11 +106,11 @@ class CourseService:
             for document, added_at in documents
         ]
         document_count = await self.course_crud.count_course_documents(db, course_id)
-        return CourseDetailResponse.model_validate(course).model_copy(
-            update={
-                "document_count": document_count,
-                "documents": items,
-            }
+        base_course = CourseResponse.model_validate(course)
+        return CourseDetailResponse(
+            **base_course.model_dump(exclude={"document_count"}),
+            document_count=document_count,
+            documents=items,
         )
 
     async def update_course(

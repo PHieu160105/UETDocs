@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     PORT: int = 8000
     LOG_LEVEL: str = "INFO"
-    ALLOWED_ORIGINS: str = ["http://localhost:5173"]
+    ALLOWED_ORIGINS: str = "http://localhost:5173"
 
     @property
     def allowed_origins_list(self) -> List[str]:

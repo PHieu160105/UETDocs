@@ -2,6 +2,10 @@ back-end/.env
 back-end/.env.*
 !back-end/.env.example
 
+# Production env files (KHÔNG bao giờ commit file này)
+.env.backend
+.env.production
+
 back-end/.venv/
 back-end/venv/
 back-end/env/

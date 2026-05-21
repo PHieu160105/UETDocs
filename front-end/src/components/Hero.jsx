@@ -55,22 +55,6 @@ const Hero = ({ searchValue = '', onSearch, stats = [] }) => {
             Tìm kiếm
           </button>
         </form>
-
-        <div className="hero__stats" aria-label="Thông tin nhanh">
-          {stats.map((stat) => {
-            const StatIcon = iconMap[stat.icon] || IconBookMark
-
-            return (
-              <div key={stat.label} className="hero__stat">
-                <StatIcon className="hero__stat-icon" />
-                <div>
-                  <strong>{stat.value}</strong>
-                  <span>{stat.label}</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
       </div>
     </section>
   )
