@@ -1031,12 +1031,12 @@ const DocumentDetail = () => {
                 ) : null}
 
                 {!isPreviewLoading && previewKind === 'image' && previewUrl ? (
-                  <div className="dd-paper dd-paper--image">
+                  <div className="dd-paper dd-paper--image" style={{ overflow: 'auto' }}>
                     <img
                       className="dd-preview-img"
                       src={previewUrl}
                       alt={document.title}
-                      style={{ transform: `scale(${zoom / 100})` }}
+                      style={{ width: `${zoom}%`, maxWidth: 'none', transform: 'none' }}
                     />
                   </div>
                 ) : null}
