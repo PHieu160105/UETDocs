@@ -1,35 +1,58 @@
 services:
   backend:
-    build:
-      context: ./back-end
-    ports:
-      - "8000:8000"
+    image: ghcr.io/${GITHUB_REPOSITORY_LOWER}/backend:latest
     env_file:
-      - ./back-end/.env
+      - /opt/uetdocs/.env.backend
     depends_on:
       - redis
-    restart: unless-stopped
+    restart: always
+    networks:
+      - app_network
 
   frontend:
-    build:
-      context: ./front-end
-      args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
-        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
-    ports:
-      - "3000:80"
+    image: ghcr.io/${GITHUB_REPOSITORY_LOWER}/frontend:latest
     depends_on:
       - backend
-    restart: unless-stopped
+    restart: always
+    networks:
+      - app_network
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
-    restart: unless-stopped
+    restart: always
     command: redis-server --appendonly yes
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:1.25-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/uetdocs/nginx/conf.d:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - app_network
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:
   redis_data:
+  certbot_www:
+
+networks:
+  app_network:
+    driver: bridge

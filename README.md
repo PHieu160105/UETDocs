@@ -161,6 +161,8 @@ npm run dev
 
 The app will be available at `http://localhost:5173`.
 
+Production deployment uses `docker-compose.yml` on the server with `/opt/uetdocs/.env.backend`.
+
 ---
 
 ## Environment Variables
@@ -224,4 +226,3 @@ Create a `.env` file in `front-end/` based on `.env.example`:
 | `VITE_USE_MOCK_AUTH` | Use mock auth for local dev | `false` |
 
 ---
-
