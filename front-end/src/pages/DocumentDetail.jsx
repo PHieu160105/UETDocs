@@ -953,9 +953,6 @@ const DocumentDetail = () => {
                   <IconShare />
                 </button>
               </div>
-              <div className="dd-viewer-bar__right">
-                <span className="dd-preview-chip">{previewLabel}</span>
-              </div>
             </div>
 
             <div className="dd-reader">
@@ -977,7 +974,6 @@ const DocumentDetail = () => {
                   ) : (
                     <div className="dd-rail-indicator dd-rail-indicator--preview">
                       <span className="dd-rail-indicator__value">{previewLabel}</span>
-                      <span className="dd-rail-indicator__label">Preview</span>
                     </div>
                   )}
                 </div>

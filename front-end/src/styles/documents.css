@@ -41,9 +41,10 @@
 }
 
 .docs-header__copy p {
-  margin: 8px 0 0;
+  margin: 12px 0 0;
   color: #647790;
   font-size: 16px;
+
 }
 
 .docs-tabs {

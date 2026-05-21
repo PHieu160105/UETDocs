@@ -7,36 +7,43 @@ import { buildDocumentSummary } from '../utils/documentPresentation'
 import { fmt, fmtRelativeDate, fmtSize } from '../utils/format'
 import '../styles/documents.css'
 
+const IconOverview = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+const IconUpload = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+const IconDownload = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+const IconBookmark = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+const IconFolder = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+const IconHeart = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+
 const TAB_ITEMS = [
-  { id: 'overview', label: 'Tong quan', icon: '◦' },
-  { id: 'uploaded', label: 'Da tai len', icon: '↑' },
-  { id: 'downloaded', label: 'Da tai xuong', icon: '↓' },
-  { id: 'bookmarks', label: 'Bookmark', icon: '⌑' },
-  { id: 'folders', label: 'Thu muc', icon: '□' },
-  { id: 'liked', label: 'Da thich', icon: '♡' },
+  { id: 'overview', label: 'Tổng quan', icon: <IconOverview /> },
+  { id: 'uploaded', label: 'Đã tải lên', icon: <IconUpload /> },
+  { id: 'downloaded', label: 'Đã tải xuống', icon: <IconDownload /> },
+  { id: 'bookmarks', label: 'Bookmark', icon: <IconBookmark /> },
+  { id: 'folders', label: 'Thư mục', icon: <IconFolder /> },
+  { id: 'liked', label: 'Đã thích', icon: <IconHeart /> },
 ]
 
 const VALID_TABS = new Set(TAB_ITEMS.map((item) => item.id))
 
 const EMPTY_MESSAGES = {
-  uploaded: 'Ban chua tai len tai lieu nao',
-  downloaded: 'Ban chua tai xuong tai lieu nao',
-  bookmarks: 'Ban chua luu bookmark nao',
-  folders: 'Ban chua co thu muc nao',
-  liked: 'Ban chua thich tai lieu nao',
+  uploaded: 'Bạn chưa tải lên tài liệu nào',
+  downloaded: 'Bạn chưa tải xuống tài liệu nào',
+  bookmarks: 'Bạn chưa lưu bookmark nào',
+  folders: 'Bạn chưa có thư mục nào',
+  liked: 'Bạn chưa thích tài liệu nào',
 }
 
 const STATUS_LABELS = {
-  approved: 'Da duyet',
-  pending: 'Cho duyet',
-  rejected: 'Tu choi',
+  approved: 'Đã duyệt',
+  pending: 'Chờ duyệt',
+  rejected: 'Từ chối',
 }
 
 const ACTIVITY_ICONS = {
-  uploaded: '↑',
-  downloaded: '↓',
-  bookmarks: '⌑',
-  liked: '♡',
+  uploaded: <IconUpload />,
+  downloaded: <IconDownload />,
+  bookmarks: <IconBookmark />,
+  liked: <IconHeart />,
 }
 
 const sanitizeTab = (value) => (VALID_TABS.has(value) ? value : 'overview')
@@ -127,7 +134,7 @@ const MyDocuments = () => {
       setError(
         requestError.response?.data?.detail ||
         requestError.message ||
-        'Khong the tai du lieu tai lieu cua ban.',
+        'Không thể tải dữ liệu tài liệu của bạn.',
       )
     } finally {
       setIsLoading(false)
@@ -270,8 +277,8 @@ const MyDocuments = () => {
             </div>
             <p>{document.subject} · {document.departmentLabel} · {fmtSize(document.file_size)}</p>
             <div className="docs-row__meta">
-              <span>{fmt(document.download_count)} luot tai</span>
-              <span>{fmt(document.like_count)} luot thich</span>
+              <span>{fmt(document.download_count)} lượt tải</span>
+              <span>{fmt(document.like_count)} lượt thích</span>
               <span>{meta.label}</span>
             </div>
           </div>
@@ -283,11 +290,11 @@ const MyDocuments = () => {
               className="docs-inline-link"
               onClick={() => setExpandedRejectId((current) => (current === document.id ? '' : document.id))}
             >
-              {expandedRejectId === document.id ? 'An ly do tu choi' : 'Xem ly do tu choi'}
+              {expandedRejectId === document.id ? 'Ẩn lý do từ chối' : 'Xem lý do từ chối'}
             </button>
             {expandedRejectId === document.id ? (
               <div className="docs-reject-box">
-                <span>Ly do tu choi</span>
+                <span>Lý do từ chối</span>
                 <p>{document.reject_reason}</p>
               </div>
             ) : null}
@@ -325,7 +332,7 @@ const MyDocuments = () => {
       setSelectedCourseId(created.data.id)
       await loadAllData()
     } catch (requestError) {
-      window.alert(requestError.response?.data?.detail || 'Khong the tao thu muc.')
+      window.alert(requestError.response?.data?.detail || 'Không thể tạo thư mục.')
     }
   }
 
@@ -335,33 +342,33 @@ const MyDocuments = () => {
       await documentAPI.removeDocumentFromCourse(selectedCourseId, documentId)
       await loadAllData()
     } catch (requestError) {
-      window.alert(requestError.response?.data?.detail || 'Khong the go tai lieu khoi thu muc.')
+      window.alert(requestError.response?.data?.detail || 'Không thể gỡ tài liệu khỏi thư mục.')
     }
   }
 
   const renderOverview = () => (
     <div className="docs-panel-section">
       <section className="docs-stats-grid">
-        <article className="docs-stat-card"><strong>{fmt(uploads.length)}</strong><span>Tai len</span></article>
-        <article className="docs-stat-card"><strong>{fmt(downloads.length)}</strong><span>Tai xuong</span></article>
+        <article className="docs-stat-card"><strong>{fmt(uploads.length)}</strong><span>Tải lên</span></article>
+        <article className="docs-stat-card"><strong>{fmt(downloads.length)}</strong><span>Tải xuống</span></article>
         <article className="docs-stat-card"><strong>{fmt(bookmarks.length)}</strong><span>Bookmark</span></article>
-        <article className="docs-stat-card"><strong>{fmt(courses.length)}</strong><span>Thu muc</span></article>
-        <article className="docs-stat-card"><strong>{fmt(liked.length)}</strong><span>Da thich</span></article>
-        <article className="docs-stat-card"><strong>{fmt(uploadStats.totalViews)}</strong><span>Luot tai tai lieu cua ban</span></article>
+        <article className="docs-stat-card"><strong>{fmt(courses.length)}</strong><span>Thư mục</span></article>
+        <article className="docs-stat-card"><strong>{fmt(liked.length)}</strong><span>Đã thích</span></article>
+        <article className="docs-stat-card"><strong>{fmt(uploadStats.totalViews)}</strong><span>Lượt tải tài liệu của bạn</span></article>
       </section>
 
       <section className="docs-section-card">
         <div className="docs-section-head">
           <div>
-            <h2>Hoat dong gan day</h2>
-            <p>Tong hop cac tai lieu ban vua tai len, tai xuong, luu hoac thich.</p>
+            <h2>Hoạt động gần đây</h2>
+            <p>Tổng hợp các tài liệu bạn vừa tải lên, tải xuống, lưu hoặc thích.</p>
           </div>
         </div>
         {recentActivity.length === 0 ? (
           <EmptyState
-            title="Ban chua co hoat dong nao"
-            message="Hay tai tai lieu dau tien hoac luu mot tai lieu de bat dau."
-            actionLabel="Tai tai lieu len"
+            title="Bạn chưa có hoạt động nào"
+            message="Hãy tải tài liệu đầu tiên hoặc lưu một tài liệu để bắt đầu."
+            actionLabel="Tải tài liệu lên"
             onAction={() => navigate('/upload')}
           />
         ) : (
@@ -391,15 +398,15 @@ const MyDocuments = () => {
     <section className="docs-section-card">
       <div className="docs-section-head">
         <div>
-          <h2>Tai lieu da tai len</h2>
-          <p>{uploadStats.approved} da duyet · {uploadStats.pending} cho duyet · {uploadStats.rejected} bi tu choi</p>
+          <h2>Tài liệu đã tải lên</h2>
+          <p>{uploadStats.approved} đã duyệt · {uploadStats.pending} chờ duyệt · {uploadStats.rejected} bị từ chối</p>
         </div>
         <button type="button" className="docs-primary-btn" onClick={() => navigate('/upload')}>
-          Tai len moi
+          Tải lên mới
         </button>
       </div>
 
-      {renderTabSearch('Tim tai lieu da tai len...')}
+      {renderTabSearch('Tìm tài liệu đã tải lên...')}
 
       <div className="docs-filter-row">
         {['all', 'approved', 'pending', 'rejected'].map((status) => (
@@ -409,16 +416,16 @@ const MyDocuments = () => {
             className={`docs-chip${uploadStatusFilter === status ? ' is-active' : ''}`}
             onClick={() => setUploadStatusFilter(status)}
           >
-            {status === 'all' ? 'Tat ca' : STATUS_LABELS[status]}
+            {status === 'all' ? 'Tất cả' : STATUS_LABELS[status]}
           </button>
         ))}
       </div>
 
       {visibleUploads.length === 0 ? (
         <EmptyState
-          title={normalizedSearch ? 'Khong tim thay tai lieu phu hop' : EMPTY_MESSAGES.uploaded}
-          message={normalizedSearch ? 'Hay thu thay doi tu khoa hoac bo loc.' : 'Khi ban tai tai lieu len, trang thai duyet se hien thi tai day.'}
-          actionLabel={normalizedSearch ? '' : 'Tai tai lieu len'}
+          title={normalizedSearch ? 'Không tìm thấy tài liệu phù hợp' : EMPTY_MESSAGES.uploaded}
+          message={normalizedSearch ? 'Hãy thử thay đổi từ khóa hoặc bộ lọc.' : 'Khi bạn tải tài liệu lên, trạng thái duyệt sẽ hiển thị tại đây.'}
+          actionLabel={normalizedSearch ? '' : 'Tải tài liệu lên'}
           onAction={normalizedSearch ? null : () => navigate('/upload')}
         />
       ) : (
@@ -437,16 +444,16 @@ const MyDocuments = () => {
     <section className="docs-section-card">
       <div className="docs-section-head">
         <div>
-          <h2>Tai lieu da tai xuong</h2>
-          <p>Lich su tai xuong cua ban.</p>
+          <h2>Tài liệu đã tải xuống</h2>
+          <p>Lịch sử tải xuống của bạn.</p>
         </div>
       </div>
-      {renderTabSearch('Tim trong lich su tai xuong...')}
+      {renderTabSearch('Tìm trong lịch sử tải xuống...')}
       {visibleDownloads.length === 0 ? (
         <EmptyState
-          title={normalizedSearch ? 'Khong tim thay tai lieu phu hop' : EMPTY_MESSAGES.downloaded}
-          message={normalizedSearch ? 'Hay thu thay doi tu khoa.' : 'Nhung tai lieu ban tai xuong se xuat hien tai day.'}
-          actionLabel={normalizedSearch ? '' : 'Kham pha tai lieu'}
+          title={normalizedSearch ? 'Không tìm thấy tài liệu phù hợp' : EMPTY_MESSAGES.downloaded}
+          message={normalizedSearch ? 'Hãy thử thay đổi từ khóa.' : 'Những tài liệu bạn tải xuống sẽ xuất hiện tại đây.'}
+          actionLabel={normalizedSearch ? '' : 'Khám phá tài liệu'}
           onAction={normalizedSearch ? null : () => navigate('/documents')}
         />
       ) : (
@@ -465,15 +472,15 @@ const MyDocuments = () => {
       <div className="docs-section-head">
         <div>
           <h2>Bookmark</h2>
-          <p>Cac tai lieu ban da luu de xem lai sau.</p>
+          <p>Các tài liệu bạn đã lưu để xem lại sau.</p>
         </div>
       </div>
-      {renderTabSearch('Tim bookmark...')}
+      {renderTabSearch('Tìm bookmark...')}
       {visibleBookmarks.length === 0 ? (
         <EmptyState
-          title={normalizedSearch ? 'Khong tim thay tai lieu phu hop' : EMPTY_MESSAGES.bookmarks}
-          message={normalizedSearch ? 'Hay thu thay doi tu khoa.' : 'Khi luu mot tai lieu, ban se thay no o day.'}
-          actionLabel={normalizedSearch ? '' : 'Kham pha tai lieu'}
+          title={normalizedSearch ? 'Không tìm thấy tài liệu phù hợp' : EMPTY_MESSAGES.bookmarks}
+          message={normalizedSearch ? 'Hãy thử thay đổi từ khóa.' : 'Khi lưu một tài liệu, bạn sẽ thấy nó ở đây.'}
+          actionLabel={normalizedSearch ? '' : 'Khám phá tài liệu'}
           onAction={normalizedSearch ? null : () => navigate('/documents')}
         />
       ) : (
@@ -491,16 +498,16 @@ const MyDocuments = () => {
     <section className="docs-section-card">
       <div className="docs-section-head">
         <div>
-          <h2>Da thich</h2>
-          <p>Cac tai lieu ban da danh dau thich.</p>
+          <h2>Đã thích</h2>
+          <p>Các tài liệu bạn đã đánh dấu thích.</p>
         </div>
       </div>
-      {renderTabSearch('Tim tai lieu da thich...')}
+      {renderTabSearch('Tìm tài liệu đã thích...')}
       {visibleLiked.length === 0 ? (
         <EmptyState
-          title={normalizedSearch ? 'Khong tim thay tai lieu phu hop' : EMPTY_MESSAGES.liked}
-          message={normalizedSearch ? 'Hay thu thay doi tu khoa.' : 'Khi thich mot tai lieu, ban se thay no o day.'}
-          actionLabel={normalizedSearch ? '' : 'Kham pha tai lieu'}
+          title={normalizedSearch ? 'Không tìm thấy tài liệu phù hợp' : EMPTY_MESSAGES.liked}
+          message={normalizedSearch ? 'Hãy thử thay đổi từ khóa.' : 'Khi thích một tài liệu, bạn sẽ thấy nó ở đây.'}
+          actionLabel={normalizedSearch ? '' : 'Khám phá tài liệu'}
           onAction={normalizedSearch ? null : () => navigate('/documents')}
         />
       ) : (
@@ -518,39 +525,39 @@ const MyDocuments = () => {
     <section className="docs-section-card">
       <div className="docs-section-head">
         <div>
-          <h2>Thu muc</h2>
-          <p>Quan ly cac thu muc tai lieu ca nhan cua ban.</p>
+          <h2>Thư mục</h2>
+          <p>Quản lý các thư mục tài liệu cá nhân của bạn.</p>
         </div>
         <button type="button" className="docs-primary-btn" onClick={() => setShowCreateCourse((current) => !current)}>
-          {showCreateCourse ? 'Dong' : 'Tao thu muc'}
+          {showCreateCourse ? 'Đóng' : 'Tạo thư mục'}
         </button>
       </div>
 
-      {renderTabSearch('Tim thu muc...')}
+      {renderTabSearch('Tìm thư mục...')}
 
       {showCreateCourse ? (
         <form className="docs-create-form" onSubmit={createCourse}>
           <input
             type="text"
-            placeholder="Ten thu muc"
+            placeholder="Tên thư mục"
             value={courseName}
             onChange={(event) => setCourseName(event.target.value)}
           />
           <input
             type="text"
-            placeholder="Mo ta ngan"
+            placeholder="Mô tả ngắn"
             value={courseDescription}
             onChange={(event) => setCourseDescription(event.target.value)}
           />
-          <button type="submit" className="docs-primary-btn">Tao</button>
+          <button type="submit" className="docs-primary-btn">Tạo</button>
         </form>
       ) : null}
 
       {visibleCourses.length === 0 ? (
         <EmptyState
-          title={normalizedSearch ? 'Khong tim thay thu muc phu hop' : EMPTY_MESSAGES.folders}
-          message={normalizedSearch ? 'Hay thu thay doi tu khoa.' : 'Tao thu muc dau tien de nhom cac tai lieu lien quan.'}
-          actionLabel={normalizedSearch ? '' : 'Tao thu muc'}
+          title={normalizedSearch ? 'Không tìm thấy thư mục phù hợp' : EMPTY_MESSAGES.folders}
+          message={normalizedSearch ? 'Hãy thử thay đổi từ khóa.' : 'Tạo thư mục đầu tiên để nhóm các tài liệu liên quan.'}
+          actionLabel={normalizedSearch ? '' : 'Tạo thư mục'}
           onAction={normalizedSearch ? null : () => setShowCreateCourse(true)}
         />
       ) : (
@@ -564,7 +571,7 @@ const MyDocuments = () => {
                 onClick={() => setSelectedCourseId(course.id)}
               >
                 <strong>{course.name}</strong>
-                <p>{course.document_count} tai lieu</p>
+                <p>{course.document_count} tài liệu</p>
                 <span>{fmtRelativeDate(course.updated_at)}</span>
               </button>
             ))}
@@ -579,7 +586,7 @@ const MyDocuments = () => {
                 </div>
               </div>
               {isCourseDetailLoading ? (
-                <div className="docs-loading">Dang tai noi dung thu muc...</div>
+                <div className="docs-loading">Đang tải nội dung thư mục...</div>
               ) : selectedCourseDetail?.documents?.length ? (
                 <div className="docs-list">
                   {selectedCourseDetail.documents.map((item) => renderDocumentRow(
@@ -592,7 +599,7 @@ const MyDocuments = () => {
                           className="docs-inline-link docs-inline-link--action"
                           onClick={() => removeCourseDocument(item.document.id)}
                         >
-                          Go khoi thu muc
+                          Gỡ khỏi thư mục
                         </button>
                       ),
                     },
@@ -600,8 +607,8 @@ const MyDocuments = () => {
                 </div>
               ) : (
                 <EmptyState
-                  title="Thu muc nay chua co tai lieu"
-                  message="Ban co the them tai lieu vao thu muc tu trang chi tiet tai lieu."
+                  title="Thư mục này chưa có tài liệu"
+                  message="Bạn có thể thêm tài liệu vào thư mục từ trang chi tiết tài liệu."
                 />
               )}
             </div>
@@ -620,12 +627,12 @@ const MyDocuments = () => {
         <section className="docs-header">
           <div className="docs-header__avatar">{userInitial}</div>
           <div className="docs-header__copy">
-            <h1>Tai lieu cua toi</h1>
-            <p>Quan ly toan bo hoat dong tai lieu cua ban</p>
+            <h1>Tài liệu của tôi</h1>
+            <p>Quản lý toàn bộ hoạt động tài liệu của bạn</p>
           </div>
         </section>
 
-        <nav className="docs-tabs" aria-label="Tai lieu cua toi">
+        <nav className="docs-tabs" aria-label="Tài liệu của tôi">
           {TAB_ITEMS.map((item) => (
             <button
               key={item.id}
@@ -639,7 +646,7 @@ const MyDocuments = () => {
           ))}
         </nav>
 
-        {isLoading ? <div className="docs-loading">Dang tai du lieu...</div> : null}
+        {isLoading ? <div className="docs-loading">Đang tải dữ liệu...</div> : null}
         {!isLoading && error ? <div className="docs-error">{error}</div> : null}
 
         {!isLoading && !error ? (
