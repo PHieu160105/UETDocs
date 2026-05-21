@@ -68,26 +68,55 @@ jobs:
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
-            set -e
+            set -Eeuo pipefail
+
+            compose_cmd="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+
+            on_error() {
+              status=$?
+              echo "Deploy failed with exit code ${status}"
+              echo "===== docker compose ps ====="
+              ${compose_cmd} ps || true
+              echo "===== docker compose logs ====="
+              ${compose_cmd} logs --no-color --tail=200 backend frontend nginx redis certbot || true
+              exit ${status}
+            }
+
+            trap on_error ERR
 
             # Login ghcr.io trên server
+            echo "==> Logging in to ghcr.io"
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
               -u ${{ github.actor }} --password-stdin
 
+            echo "==> Moving to deploy directory"
             cd /opt/uetdocs
 
             # Cập nhật biến môi trường
             export GITHUB_REPOSITORY_LOWER=${{ steps.prep.outputs.repo_lower }}
 
+            echo "==> Docker Compose version"
+            docker compose version
+
+            echo "==> Validating merged compose config"
+            ${compose_cmd} config > /tmp/uetdocs-compose.rendered.yml
+
             # Pull images mới nhất và restart containers
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+            echo "==> Pulling images"
+            ${compose_cmd} pull
+
+            echo "==> Starting containers"
+            ${compose_cmd} up -d
+
+            echo "==> Container status after startup"
+            ${compose_cmd} ps
 
             # Chạy database migration
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-              exec -T backend alembic upgrade head
+            echo "==> Running database migrations"
+            ${compose_cmd} exec -T backend alembic upgrade head
 
             # Dọn dẹp images cũ
+            echo "==> Pruning old images"
             docker image prune -f
 
-            echo "Deploy thành công!"
+            echo "Deploy thanh cong!"
