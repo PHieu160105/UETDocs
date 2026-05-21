@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: 🚀 Build, Push & Deploy
+    name: Build, Push & Deploy
     runs-on: ubuntu-latest
 
     steps:
